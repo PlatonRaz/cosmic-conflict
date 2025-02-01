@@ -15,7 +15,8 @@ class Game():
               "RED":(255,0,0),
               "WHITE":(255,255,255),
               "GREEN":(0,255,0),
-              "YELLOW":(255,255,0)}
+              "YELLOW":(255,255,0)
+              }
 
     FONT_LARGE = pygame.font.Font("8-BIT WONDER.TTF",32)
     FONT_MEDIUM = pygame.font.Font("8-BIT WONDER.TTF",28)
@@ -23,22 +24,23 @@ class Game():
 
     #Load constant images
     BG_IMG = pygame.image.load("Background/background.png")
+    '''
+    SHIP_LIST = [pygame.image.load("Player Ships/ship1.png"),
+                pygame.image.load("Player Ships/ship2.png"),
+                pygame.image.load("Player Ships/ship3.png"),
+                pygame.image.load("Player Ships/ship4.png"),
+                pygame.image.load("Player Ships/ship5.png"),
+                pygame.image.load("Player Ships/ship6.png")
+                ]   
+   
+    '''
+    
+    SHIP_LIST = [pygame.image.load(f"Player Ships/ship{i}.png") for i in range(1,7)]   
 
     def __init__(self):
         #Assign instance to class variable
         Game.instance = self
 
-        #Available buttons
-        self.buttons = {
-            "MENU" : [
-                Button("PLAY",self.FONT_MEDIUM, "WHITE", (140,300)),
-                Button("OPTIONS",self.FONT_MEDIUM, "WHITE", (110,375)),
-                Button("ARMOURY",self.FONT_MEDIUM, "WHITE", (95,450)),
-                Button("HELP",self.FONT_MEDIUM, "WHITE", (140,525))],
-
-            "BACK" : Button("BACK",self.FONT_MEDIUM, "WHITE", (10,500))
-            }
-        
         #Window dimensions
         self.width = 400
         self.height = 600
@@ -63,6 +65,25 @@ class Game():
         #Background attributes
         self.BG_default_y = -self.BG_IMG.get_height()/2
         self.BG_y = self.BG_default_y
+
+
+        #Available buttons
+        self.text_buttons = {
+            "MENU" : [
+                TextButton("PLAY",self.FONT_MEDIUM, "WHITE", (140,300)),
+                TextButton("OPTIONS",self.FONT_MEDIUM, "WHITE", (110,375)),
+                TextButton("ARMOURY",self.FONT_MEDIUM, "WHITE", (95,450)),
+                TextButton("HELP",self.FONT_MEDIUM, "WHITE", (140,525))],
+
+            "BACK" : TextButton("BACK",self.FONT_MEDIUM, "WHITE", (10,500))
+            }
+        
+      
+        self.image_buttons = {
+            "ARMOURY" : [ImageButton(img, ((Game.SHIP_LIST.index(img) * 130), 130)) for img in Game.SHIP_LIST],
+            }
+       
+        
         
 
     def text(self, message, font, color, pos):
@@ -86,7 +107,6 @@ class Game():
         if self.BG_y >= 0:
             #Reset Y value to -600
             self.BG_y = self.BG_default_y
-
             
     def run(self):
         while self.running:
@@ -97,7 +117,6 @@ class Game():
             elif self.current_state != "ARMOURY" and self.width != 400:
                 self.set_screen_size(400)
 
-                
             #Executes events of current state
             self.process_events()
 
@@ -115,7 +134,6 @@ class Game():
 
             #Executes logic of current state
             self.states[self.current_state][0]()
-
             #Render and update screen
             self.global_render()
             
@@ -153,7 +171,7 @@ class Game():
         self.text("HIGHSCORE 0",self.FONT_SMALL, "WHITE", (100,100))
 
         #Load and display menu buttons
-        for b in self.buttons["MENU"]:
+        for b in self.text_buttons["MENU"]:
             b.update()
        
 
@@ -163,16 +181,21 @@ class Game():
     
     def options(self):
         #Options logic 
-        self.buttons["BACK"].update()
+        self.text_buttons["BACK"].update()
         
     def armoury(self):
         #Armoury logic
-        self.buttons["BACK"].update()
-        
+        self.text("select ship", self.FONT_SMALL, "WHITE", (10,80))
+        self.text_buttons["BACK"].update()
+       
+        #Display Ships
+        for ship in self.image_buttons["ARMOURY"]:
+            ship.update()
+    
         
     def help(self):
         #Help Logic
-        self.buttons["BACK"].update()
+        self.text_buttons["BACK"].update()
         
     def menu_event_handler(self, event):
         self.mouse_click_event(event)
@@ -189,50 +212,75 @@ class Game():
     def help_event_handler(self, event):
         self.mouse_click_event(event)
 
-#-----------------------------------------------------------------------------------------------------------------------------------------------
 class Button():
-    def __init__(self, message, font, color, pos):
-        
+    def __init__(self, pos):
         #Custom attributes
-        self.message = message
-        self.font = font
-        self.color = color
         self.pos = pos
-
         #Default attributes 
-        self.button_surface = font.render(message, True, (Game.instance.COLORS[color]))
-        self.rect = self.button_surface.get_rect(topleft = (pos))
-        
+        self.button_surface = None
+        self.button_rect = None
+
     def update(self):
         self.handle_button_press()
         self.render_button()
 
     def handle_button_press(self):
-        #Default color if when not hovering over button
-        self.button_surface = self.font.render(self.message, True, (Game.instance.COLORS[self.color]))
+        
 
         #Check if mouse is hovering over button
-        if self.rect.collidepoint(Game.instance.mx, Game.instance.my):
-
-            #Highlight button different color for usability
-            self.button_surface = self.font.render(self.message,False,(Game.instance.COLORS["YELLOW"]))
-
+        if self.button_rect.collidepoint(Game.instance.mx, Game.instance.my):
             #Check if user presses LMB
             if Game.instance.click:
-                #Dynamically check if message is in self.states
+                self.on_click()
 
-                for key in Game.instance.states:
-                    if self.message == key:
-                        Game.instance.current_state = key
-                    
-                    #Return user to menu
-                    elif self.message == "BACK":
-                        Game.instance.current_state = "MENU"
-
+    def on_click(self):
+        pass #To be implemented in child classes
+    
     def render_button(self):
         Game.instance.screen.blit(self.button_surface, self.pos)
 
-#-----------------------------------------------------------------------------------------------------------------------------------------------
+class ImageButton(Button):
+    def __init__(self, img, pos):
+        super().__init__(pos)
+        #Default attributes
+        self.button_surface = img
+        self.button_rect = self.button_surface.get_rect(topleft = pos)
+    
+    def on_click(self):
+        print("Hi")
+
+class TextButton(Button):
+    def __init__(self, message, font, color, pos):
+        super().__init__(pos)
+        #Default attributes
+        self.message = message
+        self.font = font
+        self.color = color
+        self.button_surface = self.font.render(self.message,False,(Game.instance.COLORS["WHITE"]))
+        self.button_rect = self.button_surface.get_rect(topleft = (pos))
+    
+    def on_click(self):
+        #Dynamically check if message is in self.states
+        for key in Game.instance.states:
+            if self.message == key:
+                Game.instance.current_state = key
+            #Return user to menu
+            elif self.message == "BACK":
+                Game.instance.current_state = "MENU"
+    
+    def handle_button_press(self):
+        #Check if mouse is hovering over button
+        if self.button_rect.collidepoint(Game.instance.mx, Game.instance.my):
+            #Highlight button different color for usability
+            self.button_surface = self.font.render(self.message,False,(Game.instance.COLORS["YELLOW"]))
+            #Check if user presses LMB
+            if Game.instance.click:
+                self.on_click()
+        
+        else:
+            self.button_surface = self.font.render(self.message,False,(Game.instance.COLORS["WHITE"]))
+
+
 
 g = Game()
 g.run()
