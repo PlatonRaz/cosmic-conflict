@@ -1,5 +1,5 @@
 #Libraries
-import pygame
+import pygame, json
 
 #Initialise all pygame modules
 pygame.init()
@@ -17,6 +17,7 @@ class Game():
               "GREEN":(0,255,0),
               "YELLOW":(255,255,0)
               }
+    
 
     FONT_LARGE = pygame.font.Font("8-BIT WONDER.TTF",32)
     FONT_MEDIUM = pygame.font.Font("8-BIT WONDER.TTF",28)
@@ -24,17 +25,16 @@ class Game():
 
     #Load constant images
     BG_IMG = pygame.image.load("Background/background.png")
-  
-    SHIP_LIST = [pygame.image.load("Player Ships/ship1.png"),
-                pygame.image.load("Player Ships/ship2.png"),
-                pygame.image.load("Player Ships/ship3.png"),
-                pygame.image.load("Player Ships/ship4.png"),
-                pygame.image.load("Player Ships/ship5.png"),
-                pygame.image.load("Player Ships/ship6.png")
-                ]   
 
-    
-    SHIP_LIST = [pygame.image.load(f"Player Ships/ship{i}.png") for i in range(1,7)]   
+    #Load JSON file that stores game text
+    def load_json_text(filename):
+        with open(filename, "r") as file:
+            return json.load(file)  
+        
+    #Dynamically load all ships for armoury
+    SHIP_LIST = [pygame.image.load(f"Player Ships/ship{i}.png") for i in range(1,7)] 
+
+    SHIP_DATA = load_json_text("game_text.json")
 
     def __init__(self):
         #Assign instance to class variable
@@ -65,7 +65,6 @@ class Game():
         self.BG_default_y = -self.BG_IMG.get_height()/2
         self.BG_y = self.BG_default_y
 
-
         #Available buttons
         self.text_buttons = {
             "MENU" : [
@@ -76,61 +75,55 @@ class Game():
 
             "BACK" : TextButton("BACK",self.FONT_MEDIUM, "WHITE", (10,500))
             }
-        
-      
-        self.image_buttons = {
-            "ARMOURY" : [ImageButton(img, ((Game.SHIP_LIST.index(img) * 130), 130)) for img in Game.SHIP_LIST],
-            }
-       
-        
-        
 
+        #Horizontal pixel spacing width
+        spacing = 130
+        #Available image buttons
+        self.image_buttons = {
+            "ARMOURY": [ImageButton(img, f"SHIP{Game.SHIP_LIST.index(img) + 1}", ((Game.SHIP_LIST.index(img) * spacing), 130)) for img in Game.SHIP_LIST],
+            }
+        self.selected_ship_description = ""
+    # Retrieve text from JSON based on category and key
+    def get_text(self, category, key):
+        return Game.SHIP_DATA.get(category, {}).get(key, "No description available.")
+        
+    #Create non-button text 
     def text(self, message, font, color, pos):
         #Create text surface and rect 
         text_surface = font.render(message, True, (self.COLORS[color]))
-          
         #Render text
         self.screen.blit(text_surface, pos)
-
 
     def set_screen_size(self, width):
         self.width = width
         self.screen = pygame.display.set_mode((self.width, self.height))
 
-    
-    def handle_background(self):
+    #Immersive background logic
+    def move_background(self):
         #Increment position downwards
         self.BG_y += 0.5
-
         #Check if reached top edge of screen
         if self.BG_y >= 0:
             #Reset Y value to -600
             self.BG_y = self.BG_default_y
-            
+    
+    def global_UI_elements(self):
+        #Display backgrounds for current states
+        if self.current_state != "ARMOURY":
+            self.screen.blit(self.BG_IMG, (0, self.BG_y))
+            self.move_background()
+        else:
+            self.screen.fill(self.COLORS["bg_color"])
+        #Display headings for current state
+        if self.current_state != "MENU" and self.current_state != "PLAY":
+            self.text(self.current_state,self.FONT_LARGE, "WHITE", (10,30))
+
     def run(self):
         while self.running:
-            #Resize screen for armoury state
-            if self.current_state == "ARMOURY" and self.width != 800:
-                self.set_screen_size(800)
-                
-            elif self.current_state != "ARMOURY" and self.width != 400:
-                self.set_screen_size(400)
-
             #Executes events of current state
             self.process_events()
-
-            #Display backgrounds for current states
-            if self.current_state != "ARMOURY":
-                self.screen.blit(self.BG_IMG, (0, self.BG_y))
-                self.handle_background()
-                
-            else:
-                self.screen.fill(self.COLORS["bg_color"])
-            
-            #Display headings for current state
-            if self.current_state != "MENU" and self.current_state != "PLAY":
-                    self.text(self.current_state,self.FONT_LARGE, "WHITE", (10,30))
-
+            #Manages global UI elements
+            self.global_UI_elements()
             #Executes logic of current state
             self.states[self.current_state][0]()
             #Render and update screen
@@ -170,28 +163,40 @@ class Game():
         self.text("HIGHSCORE 0",self.FONT_SMALL, "WHITE", (100,100))
 
         #Load and display menu buttons
-        for b in self.text_buttons["MENU"]:
-            b.update()
+        for button in self.text_buttons["MENU"]:
+            button.update()
        
 
     def play(self):
         #Play logic 
         pass
-    
+    #Options Logic
     def options(self):
-        #Options logic 
+        #Options UI 
         self.text_buttons["BACK"].update()
-        
+            #Options Logic
+    
+    #Armoury Logic
     def armoury(self):
-        #Armoury logic
+        #Armoury UI
         self.text("select ship", self.FONT_SMALL, "WHITE", (10,80))
         self.text_buttons["BACK"].update()
         #Display Ships
         for ship in self.image_buttons["ARMOURY"]:
             ship.update()
+
+        #Display correct ship description
+            
+        #Resize screen for armoury state
+        if self.current_state == "ARMOURY" and self.width != 800:
+            self.set_screen_size(800)
+        #Reset screen to default width 
+        elif self.current_state != "ARMOURY" and self.width != 400:
+            self.set_screen_size(400)
         
+    #Help Logic
     def help(self):
-        #Help Logic
+        #Help UI
         self.text_buttons["BACK"].update()
         
     def menu_event_handler(self, event):
@@ -233,27 +238,34 @@ class Button():
     def render_button(self):
         #Display button on-screen
         Game.instance.screen.blit(self.button_surface, self.pos)
-    
-    
 
 class ImageButton(Button):
-    def __init__(self, img, pos):
+    def __init__(self, img, ship_name, pos):
         super().__init__(pos)
         #Default attributes
         self.button_surface = img
         self.button_rect = self.button_surface.get_rect(topleft = pos)
+        self.ship_name = ship_name
     
     def on_click(self):
         pass
-
     def on_hover(self):
         self.button_surface.set_alpha(100)
-    
+        Game.instance.selected_ship_description = Game.instance.SHIP_DATA.get(self.ship_name, {})
+        self.draw_ship_description()
+
     def on_unhover(self):
         self.button_surface.set_alpha(255)
+    # Display the selected ship's description
+    def draw_ship_description(self):
+        if Game.instance.selected_ship_description:
+            x,y = 10, 300
+            
+            for key, value in Game.instance.selected_ship_description.items():
+                ship_text = f"{key} {value}"
+                Game.instance.text(ship_text, Game.instance.FONT_SMALL, "WHITE", (x, y))
+                y += 30
 
-    
-    
 class TextButton(Button):
     def __init__(self, message, font, color, pos):
         super().__init__(pos)

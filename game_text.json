@@ -1,0 +1,45 @@
+{
+    "SHIP1": {
+        "name": "Euphoria",
+        "speed": 40,
+        "health": 30,
+        "ammo": 5,
+        "weapon": "Single Shooter"
+    },
+    "SHIP2": {
+        "name": "Pandora",
+        "speed": 70,
+        "health": 10,
+        "ammo": 5,
+        "weapon": "Single Shooter"
+    },
+    "SHIP3": {
+        "name": "Battalion",
+        "speed": 30,
+        "health": 40,
+        "ammo": 10,
+        "weapon": "Single Shooter"
+    },
+    "SHIP4": {
+        "name": "Neptune",
+        "speed": 50,
+        "health": 50,
+        "ammo": 5,
+        "weapon": "Dual Shooter"
+    },
+    "SHIP5": {
+        "name": "Sirius",
+        "speed": 60,
+        "health": 60,
+        "ammo": 10,
+        "weapon": "Triple Wide Shooter"
+    },
+    "SHIP6": {
+        "name": "Euphoria",
+        "speed": 70,
+        "health": 10,
+        "ammo": 1,
+        "weapon": "Sniper Shooter"
+    }
+
+}
