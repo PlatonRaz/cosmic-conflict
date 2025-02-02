@@ -39,7 +39,6 @@ class Game():
     def __init__(self):
         #Assign instance to class variable
         Game.instance = self
-
         #Window dimensions
         self.width = 400
         self.height = 600
@@ -170,12 +169,13 @@ class Game():
     def play(self):
         #Play logic 
         pass
+    
     #Options Logic
     def options(self):
         #Options UI 
         self.text_buttons["BACK"].update()
             #Options Logic
-    
+
     #Armoury Logic
     def armoury(self):
         #Armoury UI
@@ -184,8 +184,6 @@ class Game():
         #Display Ships
         for ship in self.image_buttons["ARMOURY"]:
             ship.update()
-
-        #Display correct ship description
             
         #Resize screen for armoury state
         if self.current_state == "ARMOURY" and self.width != 800:
@@ -240,31 +238,36 @@ class Button():
         Game.instance.screen.blit(self.button_surface, self.pos)
 
 class ImageButton(Button):
-    def __init__(self, img, ship_name, pos):
+    def __init__(self, img, button_name, pos):
         super().__init__(pos)
         #Default attributes
         self.button_surface = img
         self.button_rect = self.button_surface.get_rect(topleft = pos)
-        self.ship_name = ship_name
+        self.button_name = button_name
+   
+    def on_hover(self):
+        #Increase transparency of surface
+        self.button_surface.set_alpha(100)
+        #Set ship description to correct ship attribute dictionary
+        Game.instance.selected_ship_description = Game.instance.SHIP_DATA.get(self.button_name)
+        self.draw_ship_description()
+   
+    # Display the selected ship's description
+    def draw_ship_description(self):
+        x,y = 10, 300
+        for key, value in Game.instance.selected_ship_description.items():
+            ship_text = f"{key}  {value}"
+            Game.instance.text(ship_text, Game.instance.FONT_SMALL, "WHITE", (x, y))
+            y += 30
     
+
     def on_click(self):
         pass
-    def on_hover(self):
-        self.button_surface.set_alpha(100)
-        Game.instance.selected_ship_description = Game.instance.SHIP_DATA.get(self.ship_name, {})
-        self.draw_ship_description()
+    
 
     def on_unhover(self):
         self.button_surface.set_alpha(255)
-    # Display the selected ship's description
-    def draw_ship_description(self):
-        if Game.instance.selected_ship_description:
-            x,y = 10, 300
-            
-            for key, value in Game.instance.selected_ship_description.items():
-                ship_text = f"{key} {value}"
-                Game.instance.text(ship_text, Game.instance.FONT_SMALL, "WHITE", (x, y))
-                y += 30
+    
 
 class TextButton(Button):
     def __init__(self, message, font, color, pos):
