@@ -79,7 +79,7 @@ class Game():
         spacing = 130
         #Available image buttons
         self.image_buttons = {
-            "ARMOURY": [ImageButton(img, f"SHIP{Game.SHIP_LIST.index(img) + 1}", ((Game.SHIP_LIST.index(img) * spacing), 130), True) for img in Game.SHIP_LIST],
+            "ARMOURY": [ImageButton(img, f"SHIP{Game.SHIP_LIST.index(img) + 1}", ((Game.SHIP_LIST.index(img) * spacing), 130), "ship") for img in Game.SHIP_LIST],
             }
         self.selected_ship_description = Game.instance.SHIP_DATA.get("SHIP1")
       
