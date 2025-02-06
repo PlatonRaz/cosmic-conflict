@@ -2,7 +2,7 @@
     "SHIP1": {
         "name": "Euphoria",
         "speed": 40,
-        "lives": 30,
+        "lives": 3,
         "ammo": 5,
         "type": "Single Shooter"
     },

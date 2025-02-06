@@ -219,18 +219,20 @@ class Game():
 
 class Player(pygame.sprite.Sprite):
     
-    #Dynamically load player ships with correct hitbox
+    #Dynamically load player ships with correct hitbox size
     PLAYER_SHIP_LIST = [pygame.image.load(f"assets/playerships/player{i}.png") for i in range(1,7)] 
  
     def __init__(self, selected_ship):
         super().__init__()
         #Player ship attributes
         self.selected_ship = selected_ship
-        self.image = Player.PLAYER_SHIP_LIST[list(Game.instance.SHIP_DATA).index(self.selected_ship)]
         self.speed = Game.instance.selected_ship_description["speed"] // 10
         self.ammo = Game.instance.selected_ship_description["ammo"]
         self.lives = Game.instance.selected_ship_description["lives"]
         self.type = Game.instance.selected_ship_description["type"]
+
+        index = list(Game.instance.SHIP_DATA).index(self.selected_ship)
+        self.image = Player.PLAYER_SHIP_LIST[index]
 
         #Player ship defaults
         default_pos = (200,500)
@@ -286,7 +288,7 @@ class ImageButton(Button):
         super().__init__(pos)
         #Default attributes
         self.button_surface = img
-        self.button_rect = self.button_surface.get_rect(topleft = pos)
+        self.button_rect = self.button_surface.get_rect(topleft=pos)
         self.button_name = button_name
         self.on_click_action = on_click_action
    
@@ -298,6 +300,13 @@ class ImageButton(Button):
             Game.instance.selected_ship_description = Game.instance.SHIP_DATA.get(self.button_name)
             self.draw_ship_description()
    
+    def on_click(self):
+        if self.on_click_action == "ship":
+            Game.instance.player = Player(self.button_name)
+
+    def on_unhover(self):
+        self.button_surface.set_alpha(255)
+    
     # Display the selected ship's description
     def draw_ship_description(self):
         x,y = 10, 300
@@ -305,16 +314,7 @@ class ImageButton(Button):
             ship_text = f"{key}  {value}"
             Game.instance.text(ship_text, Game.instance.FONT_SMALL, "WHITE", (x, y))
             y += 30
-    
 
-    def on_click(self):
-        if self.on_click_action == "ship":
-            Game.instance.player = Player(self.button_name)
-
-
-    def on_unhover(self):
-        self.button_surface.set_alpha(255)
-    
 class TextButton(Button):
     def __init__(self, message, font, color, pos):
         super().__init__(pos)
@@ -323,7 +323,7 @@ class TextButton(Button):
         self.font = font
         self.color = color
         self.button_surface = self.font.render(self.message,False,(Game.instance.COLORS["WHITE"]))
-        self.button_rect = self.button_surface.get_rect(topleft = (pos))
+        self.button_rect = self.button_surface.get_rect(topleft=(pos))
     
     def on_click(self):
         #Dictionary lookup
