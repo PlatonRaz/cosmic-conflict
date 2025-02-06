@@ -19,12 +19,12 @@ class Game():
               }
     
 
-    FONT_LARGE = pygame.font.Font("8-BIT WONDER.TTF",32)
-    FONT_MEDIUM = pygame.font.Font("8-BIT WONDER.TTF",28)
-    FONT_SMALL = pygame.font.Font("8-BIT WONDER.TTF",18)
+    FONT_LARGE = pygame.font.Font("assets/8-BIT WONDER.TTF",32)
+    FONT_MEDIUM = pygame.font.Font("assets/8-BIT WONDER.TTF",28)
+    FONT_SMALL = pygame.font.Font("assets/8-BIT WONDER.TTF",18)
 
     #Load constant images
-    BG_IMG = pygame.image.load("Background/background.png")
+    BG_IMG = pygame.image.load("assets/background/background.png")
 
     #Load JSON file that stores game text
     def load_json_text(filename):
@@ -32,9 +32,9 @@ class Game():
             return json.load(file)  
         
     #Dynamically load all ships for armoury
-    SHIP_LIST = [pygame.image.load(f"Player Ships/ship{i}.png") for i in range(1,7)] 
-
-    SHIP_DATA = load_json_text("game_text.json")
+    SHIP_LIST = [pygame.image.load(f"assets/playerships/ship{i}.png") for i in range(1,7)] 
+    
+    SHIP_DATA = load_json_text("data/game_text.json")
 
     def __init__(self):
         #Assign instance to class variable
@@ -46,7 +46,7 @@ class Game():
         #Screen initialisation
         self.screen = pygame.display.set_mode((self.width, self.height))
         self.clock = pygame.time.Clock()
-        
+       
         #Game states
         self.states = {
             "MENU": [self.menu, self.menu_event_handler],
@@ -79,9 +79,13 @@ class Game():
         spacing = 130
         #Available image buttons
         self.image_buttons = {
-            "ARMOURY": [ImageButton(img, f"SHIP{Game.SHIP_LIST.index(img) + 1}", ((Game.SHIP_LIST.index(img) * spacing), 130)) for img in Game.SHIP_LIST],
+            "ARMOURY": [ImageButton(img, f"SHIP{Game.SHIP_LIST.index(img) + 1}", ((Game.SHIP_LIST.index(img) * spacing), 130), True) for img in Game.SHIP_LIST],
             }
-        self.selected_ship_description = ""
+        self.selected_ship_description = Game.instance.SHIP_DATA.get("SHIP1")
+      
+        #Initialise default player ship
+        self.player = Player("SHIP1")
+   
     # Retrieve text from JSON based on category and key
     def get_text(self, category, key):
         return Game.SHIP_DATA.get(category, {}).get(key, "No description available.")
@@ -168,7 +172,8 @@ class Game():
 
     def play(self):
         #Play logic 
-        pass
+        self.player.update()
+
     
     #Options Logic
     def options(self):
@@ -212,6 +217,45 @@ class Game():
     def help_event_handler(self, event):
         self.mouse_click_event(event)
 
+class Player(pygame.sprite.Sprite):
+    
+    #Dynamically load player ships with correct hitbox
+    PLAYER_SHIP_LIST = [pygame.image.load(f"assets/playerships/player{i}.png") for i in range(1,7)] 
+ 
+    def __init__(self, selected_ship):
+        super().__init__()
+        #Player ship attributes
+        self.selected_ship = selected_ship
+        self.image = Player.PLAYER_SHIP_LIST[list(Game.instance.SHIP_DATA).index(self.selected_ship)]
+        self.speed = Game.instance.selected_ship_description["speed"] // 10
+        self.ammo = Game.instance.selected_ship_description["ammo"]
+        self.lives = Game.instance.selected_ship_description["lives"]
+        self.type = Game.instance.selected_ship_description["type"]
+
+        #Player ship defaults
+        default_pos = (200,500)
+        self.rect = self.image.get_rect(center=default_pos)
+    
+    def update(self):
+        self.handle_movement()
+        self.render()
+
+    def handle_movement(self):
+        key = pygame.key.get_pressed()
+
+        if key[pygame.K_a] and self.rect.x > 0: 
+            self.rect.x -= self.speed  
+        if key[pygame.K_d] and self.rect.x < Game.instance.width - self.rect.width: 
+            self.rect.x += self.speed
+        if key[pygame.K_w] and  self.rect.y > 0: 
+            self.rect.y -= self.speed
+        if key[pygame.K_s] and self.rect.y < Game.instance.height - self.rect.width: 
+            self.rect.y += self.speed
+        
+    def render(self):
+        Game.instance.screen.blit(self.image, self.rect)  # Draw player sprite
+
+
 class Button():
     def __init__(self, pos):
         #Custom attributes
@@ -238,19 +282,21 @@ class Button():
         Game.instance.screen.blit(self.button_surface, self.pos)
 
 class ImageButton(Button):
-    def __init__(self, img, button_name, pos):
+    def __init__(self, img, button_name, pos, on_click_action=None):
         super().__init__(pos)
         #Default attributes
         self.button_surface = img
         self.button_rect = self.button_surface.get_rect(topleft = pos)
         self.button_name = button_name
+        self.on_click_action = on_click_action
    
     def on_hover(self):
         #Increase transparency of surface
         self.button_surface.set_alpha(100)
         #Set ship description to correct ship attribute dictionary
-        Game.instance.selected_ship_description = Game.instance.SHIP_DATA.get(self.button_name)
-        self.draw_ship_description()
+        if self.on_click_action == "ship":
+            Game.instance.selected_ship_description = Game.instance.SHIP_DATA.get(self.button_name)
+            self.draw_ship_description()
    
     # Display the selected ship's description
     def draw_ship_description(self):
@@ -262,13 +308,13 @@ class ImageButton(Button):
     
 
     def on_click(self):
-        pass
-    
+        if self.on_click_action == "ship":
+            Game.instance.player = Player(self.button_name)
+
 
     def on_unhover(self):
         self.button_surface.set_alpha(255)
     
-
 class TextButton(Button):
     def __init__(self, message, font, color, pos):
         super().__init__(pos)
