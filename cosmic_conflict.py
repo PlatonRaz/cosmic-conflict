@@ -19,12 +19,12 @@ class Game():
               }
     
 
-    FONT_LARGE = pygame.font.Font("8-BIT WONDER.TTF",32)
-    FONT_MEDIUM = pygame.font.Font("8-BIT WONDER.TTF",28)
-    FONT_SMALL = pygame.font.Font("8-BIT WONDER.TTF",18)
+    FONT_LARGE = pygame.font.Font("assets/8-BIT WONDER.TTF",32)
+    FONT_MEDIUM = pygame.font.Font("assets/8-BIT WONDER.TTF",28)
+    FONT_SMALL = pygame.font.Font("assets/8-BIT WONDER.TTF",18)
 
     #Load constant images
-    BG_IMG = pygame.image.load("Background/background.png")
+    BG_IMG = pygame.image.load("assets/background/background.png")
 
     #Load JSON file that stores game text
     def load_json_text(filename):
@@ -32,9 +32,9 @@ class Game():
             return json.load(file)  
         
     #Dynamically load all ships for armoury
-    SHIP_LIST = [pygame.image.load(f"Player Ships/ship{i}.png") for i in range(1,7)] 
+    SHIP_LIST = [pygame.image.load(f"assets/playerships/ship{i}.png") for i in range(1,7)] 
 
-    SHIP_DATA = load_json_text("game_text.json")
+    SHIP_DATA = load_json_text("data/game_text.json")
 
     def __init__(self):
         #Assign instance to class variable
