@@ -314,7 +314,16 @@ class ImageButton(Button):
             ship_text = f"{key}  {value}"
             Game.instance.text(ship_text, Game.instance.FONT_SMALL, "WHITE", (x, y))
             y += 30
+    
 
+    def on_click(self):
+        if self.on_click_action == "ship":
+            Game.instance.player = Player(self.button_name)
+
+
+    def on_unhover(self):
+        self.button_surface.set_alpha(255)
+    
 class TextButton(Button):
     def __init__(self, message, font, color, pos):
         super().__init__(pos)
