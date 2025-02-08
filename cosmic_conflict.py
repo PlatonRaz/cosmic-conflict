@@ -3,9 +3,7 @@ import pygame, json
 
 #Initialise all pygame modules
 pygame.init()
-
 #-----------------------------------------------------------------------------------------------------------------------------------------------
-
 class Game():
     #Define class variables
     instance = None
@@ -86,9 +84,6 @@ class Game():
         #Initialise default player ship
         self.player = Player("SHIP1")
    
-    # Retrieve text from JSON based on category and key
-    def get_text(self, category, key):
-        return Game.SHIP_DATA.get(category, {}).get(key, "No description available.")
         
     #Create non-button text 
     def text(self, message, font, color, pos):
@@ -218,10 +213,9 @@ class Game():
         self.mouse_click_event(event)
 
 class Player(pygame.sprite.Sprite):
-    
     #Dynamically load player ships with correct hitbox size
     PLAYER_SHIP_LIST = [pygame.image.load(f"assets/playerships/player{i}.png") for i in range(1,7)] 
- 
+    
     def __init__(self, selected_ship):
         super().__init__()
         #Player ship attributes
@@ -231,6 +225,7 @@ class Player(pygame.sprite.Sprite):
         self.lives = Game.instance.selected_ship_description["lives"]
         self.type = Game.instance.selected_ship_description["type"]
 
+        # Determine the correct ship image index based on selection
         index = list(Game.instance.SHIP_DATA).index(self.selected_ship)
         self.image = Player.PLAYER_SHIP_LIST[index]
 
@@ -243,17 +238,24 @@ class Player(pygame.sprite.Sprite):
         self.render()
 
     def handle_movement(self):
-        key = pygame.key.get_pressed()
+        key = pygame.key.get_pressed()  # Returns tuple of bools for keys pressed
 
-        if key[pygame.K_a] and self.rect.x > 0: 
+        #Check for key press and if within screen bounds
+        if key[pygame.K_a]: 
             self.rect.x -= self.speed  
-        if key[pygame.K_d] and self.rect.x < Game.instance.width - self.rect.width: 
+            if self.rect.x < -self.rect.width:  # Off the left edge
+                self.rect.x = Game.instance.width  # Reappear on the right
+     
+        if key[pygame.K_d]: 
             self.rect.x += self.speed
+            if self.rect.x > Game.instance.width:  # Off the right edge
+                self.rect.x = -self.rect.width  # Reappear on the left
+      
         if key[pygame.K_w] and  self.rect.y > 0: 
             self.rect.y -= self.speed
         if key[pygame.K_s] and self.rect.y < Game.instance.height - self.rect.width: 
             self.rect.y += self.speed
-        
+
     def render(self):
         Game.instance.screen.blit(self.image, self.rect)  # Draw player sprite
 
