@@ -32,7 +32,15 @@ class Game():
     #Dynamically load all ships for armoury
     SHIP_LIST = [pygame.image.load(f"assets/playerships/ship{i}.png") for i in range(1,7)] 
     
+    #Load bullet types for player/enemy
+    BULLET_LIST = {"player" : pygame.image.load("assets/bullets/player_bullet.png"), 
+                   "enemy" : pygame.image.load("assets/bullets/enemy_bullet.png")}
+    
     SHIP_DATA = load_json_text("data/game_text.json")
+
+    #Define pygame groups
+    bullet_group = pygame.sprite.Group()
+    enemy_group = pygame.sprite.Group()
 
     def __init__(self):
         #Assign instance to class variable
@@ -70,7 +78,7 @@ class Game():
                 TextButton("ARMOURY",self.FONT_MEDIUM, "WHITE", (95,450)),
                 TextButton("HELP",self.FONT_MEDIUM, "WHITE", (140,525))],
 
-            "BACK" : TextButton("BACK",self.FONT_MEDIUM, "WHITE", (10,500))
+            "BACK" : TextButton("BACK",self.FONT_MEDIUM, "WHITE", (10,525))
             }
 
         #Horizontal pixel spacing width
@@ -79,12 +87,12 @@ class Game():
         self.image_buttons = {
             "ARMOURY": [ImageButton(img, f"SHIP{Game.SHIP_LIST.index(img) + 1}", ((Game.SHIP_LIST.index(img) * spacing), 130), "ship") for img in Game.SHIP_LIST],
             }
+          
         self.selected_ship_description = Game.instance.SHIP_DATA.get("SHIP1")
       
         #Initialise default player ship
         self.player = Player("SHIP1")
    
-        
     #Create non-button text 
     def text(self, message, font, color, pos):
         #Create text surface and rect 
@@ -168,13 +176,17 @@ class Game():
     def play(self):
         #Play logic 
         self.player.update()
+       
+        #Update and draw sprite groups
+        self.bullet_group.draw(self.screen)
+        self.bullet_group.update()
 
     
     #Options Logic
     def options(self):
         #Options UI 
         self.text_buttons["BACK"].update()
-            #Options Logic
+        #Options Logic
 
     #Armoury Logic
     def armoury(self):
@@ -224,7 +236,9 @@ class Player(pygame.sprite.Sprite):
         self.ammo = Game.instance.selected_ship_description["ammo"]
         self.lives = Game.instance.selected_ship_description["lives"]
         self.type = Game.instance.selected_ship_description["type"]
-
+        self.fire_rate = Game.instance.selected_ship_description["fire rate"] * 10
+        self.bullet_speed = Game.instance.selected_ship_description["bullet speed"]
+        
         # Determine the correct ship image index based on selection
         index = list(Game.instance.SHIP_DATA).index(self.selected_ship)
         self.image = Player.PLAYER_SHIP_LIST[index]
@@ -233,13 +247,15 @@ class Player(pygame.sprite.Sprite):
         default_pos = (200,500)
         self.rect = self.image.get_rect(center=default_pos)
     
+        self.previous_time = pygame.time.get_ticks()
+
     def update(self):
-        self.handle_movement()
+        key = pygame.key.get_pressed()  # Returns tuple of bools for keys pressed
+        self.handle_movement(key)
+        self.shoot_bullet(key)
         self.render()
 
-    def handle_movement(self):
-        key = pygame.key.get_pressed()  # Returns tuple of bools for keys pressed
-
+    def handle_movement(self, key):
         #Check for key press and if within screen bounds
         if key[pygame.K_a]: 
             self.rect.x -= self.speed  
@@ -251,10 +267,46 @@ class Player(pygame.sprite.Sprite):
             if self.rect.x > Game.instance.width:  # Off the right edge
                 self.rect.x = -self.rect.width  # Reappear on the left
       
-        if key[pygame.K_w] and  self.rect.y > 0: 
+        if key[pygame.K_w] and self.rect.y > 0: 
             self.rect.y -= self.speed
         if key[pygame.K_s] and self.rect.y < Game.instance.height - self.rect.width: 
             self.rect.y += self.speed
+
+    def shoot_bullet(self, key):       
+        if key[pygame.K_SPACE]:
+            current_time = pygame.time.get_ticks()
+            if current_time - self.previous_time > self.fire_rate:
+                self.previous_time = current_time
+
+                if self.selected_ship == "SHIP1" or self.selected_ship == "SHIP2" or self.selected_ship == "SHIP6":
+                    bullet = Bullet(self.rect.x, self.rect.y, self.bullet_speed)
+                    Game.instance.bullet_group.add(bullet)
+                    self.ammo -= 1
+               
+                elif self.selected_ship == "SHIP3":
+                    bullet = Bullet(self.rect.x-25, self.rect.y, self.bullet_speed, True, 'NW')
+                    bullet2 = Bullet(self.rect.x+25, self.rect.y, self.bullet_speed, True, 'NE')
+
+                    Game.instance.bullet_group.add(bullet, bullet2)
+                    self.ammo -= 1
+
+                elif self.selected_ship == "SHIP4":
+                    bullet = Bullet(self.rect.x-35, self.rect.y, self.bullet_speed)
+                    bullet2 = Bullet(self.rect.x+35, self.rect.y, self.bullet_speed)
+
+                    Game.instance.bullet_group.add(bullet, bullet2)
+                    self.ammo -= 1
+              
+                elif self.selected_ship == "SHIP5":
+                    bullet = Bullet(self.rect.x, self.rect.y, self.bullet_speed)
+                    bullet2 = Bullet(self.rect.x-35, self.rect.y+25, self.bullet_speed, True, 'NW')
+                    bullet3 = Bullet(self.rect.x+35, self.rect.y+25, self.bullet_speed, True, 'NE')
+
+                    Game.instance.bullet_group.add(bullet, bullet2, bullet3)
+                    self.ammo -= 1
+                
+              
+
 
     def render(self):
         Game.instance.screen.blit(self.image, self.rect)  # Draw player sprite
@@ -301,10 +353,6 @@ class ImageButton(Button):
         if self.on_click_action == "ship":
             Game.instance.selected_ship_description = Game.instance.SHIP_DATA.get(self.button_name)
             self.draw_ship_description()
-   
-    def on_click(self):
-        if self.on_click_action == "ship":
-            Game.instance.player = Player(self.button_name)
 
     def on_unhover(self):
         self.button_surface.set_alpha(255)
@@ -320,11 +368,8 @@ class ImageButton(Button):
 
     def on_click(self):
         if self.on_click_action == "ship":
+            print(Game.instance.SHIP_DATA.get(self.button_name))
             Game.instance.player = Player(self.button_name)
-
-
-    def on_unhover(self):
-        self.button_surface.set_alpha(255)
     
 class TextButton(Button):
     def __init__(self, message, font, color, pos):
@@ -351,6 +396,40 @@ class TextButton(Button):
         #Rest button to white when not hovering
         self.button_surface = self.font.render(self.message,False,(Game.instance.COLORS["WHITE"]))
 
+class Bullet(pygame.sprite.Sprite):
+    def __init__(self, x, y, speed, is_player=True, direction=None):
+        super().__init__()
+        self.x = x
+        self.y = y
+        self.direction = direction
+        self.speed = speed
+        self.is_player = is_player # True by default
+
+        if not is_player:
+            self.image = Game.instance.BULLET_LIST["enemy"]
+        else:
+            self.image = Game.instance.BULLET_LIST["player"]
+        
+        self.rect = self.image.get_rect(center = ((x + Game.instance.player.rect.width//2), y))
+    
+    def update(self):
+
+        self.handle_trajectory()
+        self.handle_collision()
+    
+    def handle_trajectory(self):
+        #Applies to all bullets
+        self.rect.y -= self.speed
+        #Apply bullet spread to bullets 
+        if self.direction == "NW":
+            self.rect.x -= 2
+        elif self.direction == "NE":
+            self.rect.x += 2
+    
+    def handle_collision(self):
+        if pygame.sprite.groupcollide(Game.instance.bullet_group, Game.instance.enemy_group, True, True):
+            Game.instance.player.ammo += 2
+
+
 g = Game()
 g.run()
-

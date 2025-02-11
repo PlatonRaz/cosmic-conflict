@@ -4,13 +4,18 @@
         "speed": 40,
         "lives": 3,
         "ammo": 5,
+        "fire rate" : 50,
+        "bullet speed" : 10,
         "type": "Single Shooter"
+     
     },
     "SHIP2": {
         "name": "Pandora",
         "speed": 70,
         "lives": 1,
         "ammo": 5,
+        "fire rate" : 40,
+        "bullet speed" : 10,
         "type": "Single Shooter"
     },
     "SHIP3": {
@@ -18,6 +23,8 @@
         "speed": 30,
         "lives": 4,
         "ammo": 10,
+        "fire rate" : 60,
+        "bullet speed" : 10,
         "type": "Single Shooter"
     },
     "SHIP4": {
@@ -25,6 +32,8 @@
         "speed": 50,
         "lives": 5,
         "ammo": 5,
+        "fire rate" : 40,
+        "bullet speed" : 10,
         "type": "Dual Shooter"
     },
     "SHIP5": {
@@ -32,13 +41,17 @@
         "speed": 60,
         "lives": 6,
         "ammo": 10,
+        "fire rate" : 50,
+        "bullet speed" : 10,
         "type": "Triple Wide Shooter"
     },
     "SHIP6": {
-        "name": "Euphoria",
+        "name": "Starpiercer",
         "speed": 70,
         "lives": 1,
         "ammo": 1,
+        "fire rate" : 80,
+        "bullet speed" : 20,
         "type": "Sniper Shooter"
     }
 
