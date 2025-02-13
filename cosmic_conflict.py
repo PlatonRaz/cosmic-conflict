@@ -227,6 +227,15 @@ class Game():
 class Player(pygame.sprite.Sprite):
     #Dynamically load player ships with correct hitbox size
     PLAYER_SHIP_LIST = [pygame.image.load(f"assets/playerships/player{i}.png") for i in range(1,7)] 
+
+    BULLET_PATTERNS = {
+                "SHIP1": [(0, 0)],
+                "SHIP2": [(0, 0)],
+                "SHIP3": [(-25, 0, 'NW'), (25, 0, 'NE')],
+                "SHIP4": [(-35, 0), (35, 0)],
+                "SHIP5": [(0, 0), (-35, 25, 'NW'), (35, 25, 'NE')],
+                "SHIP6": [(0, 0)]
+            }
     
     def __init__(self, selected_ship):
         super().__init__()
@@ -273,41 +282,23 @@ class Player(pygame.sprite.Sprite):
             self.rect.y += self.speed
 
     def shoot_bullet(self, key):       
+       # Check if the spacebar is pressed
         if key[pygame.K_SPACE]:
+            # Get the current time in milliseconds
             current_time = pygame.time.get_ticks()
+
+            # Check if enough time has passed since the last shot 
             if current_time - self.previous_time > self.fire_rate:
                 self.previous_time = current_time
-
-                if self.selected_ship == "SHIP1" or self.selected_ship == "SHIP2" or self.selected_ship == "SHIP6":
-                    bullet = Bullet(self.rect.x, self.rect.y, self.bullet_speed)
-                    Game.instance.bullet_group.add(bullet)
-                    self.ammo -= 1
                
-                elif self.selected_ship == "SHIP3":
-                    bullet = Bullet(self.rect.x-25, self.rect.y, self.bullet_speed, True, 'NW')
-                    bullet2 = Bullet(self.rect.x+25, self.rect.y, self.bullet_speed, True, 'NE')
+                for pattern in Player.BULLET_PATTERNS[self.selected_ship]:
+                    x, y, *direction = pattern  # Unpack tuple, direction is optional
+                    bullet = Bullet(self.rect.x + x, self.rect.y + y, self.bullet_speed, True, *direction)
+                    Game.instance.bullet_group.add(bullet)
 
-                    Game.instance.bullet_group.add(bullet, bullet2)
-                    self.ammo -= 1
-
-                elif self.selected_ship == "SHIP4":
-                    bullet = Bullet(self.rect.x-35, self.rect.y, self.bullet_speed)
-                    bullet2 = Bullet(self.rect.x+35, self.rect.y, self.bullet_speed)
-
-                    Game.instance.bullet_group.add(bullet, bullet2)
-                    self.ammo -= 1
-              
-                elif self.selected_ship == "SHIP5":
-                    bullet = Bullet(self.rect.x, self.rect.y, self.bullet_speed)
-                    bullet2 = Bullet(self.rect.x-35, self.rect.y+25, self.bullet_speed, True, 'NW')
-                    bullet3 = Bullet(self.rect.x+35, self.rect.y+25, self.bullet_speed, True, 'NE')
-
-                    Game.instance.bullet_group.add(bullet, bullet2, bullet3)
-                    self.ammo -= 1
-                
-              
-
-
+                self.ammo -= 1
+                    
+               
     def render(self):
         Game.instance.screen.blit(self.image, self.rect)  # Draw player sprite
 
@@ -409,22 +400,30 @@ class Bullet(pygame.sprite.Sprite):
             self.image = Game.instance.BULLET_LIST["enemy"]
         else:
             self.image = Game.instance.BULLET_LIST["player"]
+    
+            #Rotate image if direction is specified
+            if self.direction == "NW":
+                self.image = pygame.transform.rotate(self.image, 15) # Rotate 15 degrees anticlockwise
+            elif self.direction == "NE":
+                self.image = pygame.transform.rotate(self.image, -15) # Rotate 15 degrees clockwise
+        
         
         self.rect = self.image.get_rect(center = ((x + Game.instance.player.rect.width//2), y))
     
     def update(self):
-
         self.handle_trajectory()
-        self.handle_collision()
     
     def handle_trajectory(self):
-        #Applies to all bullets
-        self.rect.y -= self.speed
-        #Apply bullet spread to bullets 
+        # Moves the bullet straight up
+        self.rect.y -= self.speed 
+       
+        # Apply horizontal movement to bullets 
         if self.direction == "NW":
-            self.rect.x -= 2
+            self.rect.x -= 2  # Move left
+       
         elif self.direction == "NE":
-            self.rect.x += 2
+            self.rect.x += 2 # Move right
+            
     
     def handle_collision(self):
         if pygame.sprite.groupcollide(Game.instance.bullet_group, Game.instance.enemy_group, True, True):
