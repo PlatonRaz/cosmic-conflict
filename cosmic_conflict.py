@@ -1,5 +1,5 @@
 #Libraries
-import pygame, json
+import pygame, json, random
 
 #Initialise all pygame modules
 pygame.init()
@@ -41,6 +41,7 @@ class Game():
     #Define pygame groups
     bullet_group = pygame.sprite.Group()
     enemy_group = pygame.sprite.Group()
+    planet_group = pygame.sprite.Group()
 
     def __init__(self):
         #Assign instance to class variable
@@ -92,6 +93,7 @@ class Game():
       
         #Initialise default player ship
         self.player = Player("SHIP1")
+        self.initialise_planets()
    
     #Create non-button text 
     def text(self, message, font, color, pos):
@@ -123,7 +125,13 @@ class Game():
         #Display headings for current state
         if self.current_state != "MENU" and self.current_state != "PLAY":
             self.text(self.current_state,self.FONT_LARGE, "WHITE", (10,30))
-
+    
+    def initialise_planets(self):
+        num_planets = 1
+        for i in range(num_planets):
+            planet = Planet()
+            self.planet_group.add(planet)
+    
     def run(self):
         while self.running:
             #Executes events of current state
@@ -175,12 +183,14 @@ class Game():
 
     def play(self):
         #Play logic 
-        self.player.update()
        
         #Update and draw sprite groups
+        self.planet_group.draw(self.screen)
         self.bullet_group.draw(self.screen)
+       
+        self.planet_group.update()
         self.bullet_group.update()
-
+        self.player.update()
     
     #Options Logic
     def options(self):
@@ -302,7 +312,6 @@ class Player(pygame.sprite.Sprite):
     def render(self):
         Game.instance.screen.blit(self.image, self.rect)  # Draw player sprite
 
-
 class Button():
     def __init__(self, pos):
         #Custom attributes
@@ -395,7 +404,8 @@ class Bullet(pygame.sprite.Sprite):
         self.direction = direction
         self.speed = speed
         self.is_player = is_player # True by default
-
+        
+        # Assign appropriate bullet image based on ownership
         if not is_player:
             self.image = Game.instance.BULLET_LIST["enemy"]
         else:
@@ -407,10 +417,13 @@ class Bullet(pygame.sprite.Sprite):
             elif self.direction == "NE":
                 self.image = pygame.transform.rotate(self.image, -15) # Rotate 15 degrees clockwise
         
-        
-        self.rect = self.image.get_rect(center = ((x + Game.instance.player.rect.width//2), y))
+        # Set the bullet's rectangle for positioning and collision detectio
+        self.rect = self.image.get_rect(
+            center = ((x + Game.instance.player.rect.width//2), y)
+            )
     
     def update(self):
+        # Updates the bullet's position according to its trajectory
         self.handle_trajectory()
     
     def handle_trajectory(self):
@@ -426,9 +439,60 @@ class Bullet(pygame.sprite.Sprite):
             
     
     def handle_collision(self):
+        # Handles collision detection and interaction with enemies.
         if pygame.sprite.groupcollide(Game.instance.bullet_group, Game.instance.enemy_group, True, True):
+            # Renew player's ammo upon a destroyed enemy
             Game.instance.player.ammo += 2
 
+import pygame
+import random
+
+class Planet(pygame.sprite.Sprite):
+    # Load all planet images once and store them in a class-level list
+    PLANET_LIST = [pygame.image.load(f"assets\planets\planet_{i}.png") 
+                   for i in range(1, 5)]
+   
+    def __init__(self):
+        super().__init__()  # Initialize the sprite class
+        self.counter = 0  # Track which planet image to use
+        self.generate_planet()  # Generate the initial planet attributes
+
+    def generate_planet(self):
+        #Randomly generates new attributes for the planet instance
+        
+        self.angle = random.randint(0, 360)  # Random rotation angle
+        self.speed = 1  # Set the falling speed of the planet
+    
+        # Randomly determine planet scale within the  range
+        lower_scale, max_scale = 1.2, 1.8
+        self.scale = random.uniform(lower_scale, max_scale)
+        
+        # Rotate and scale the planet image
+        self.image = pygame.transform.rotozoom(
+            Planet.PLANET_LIST[self.counter], self.angle, self.scale
+        ).convert_alpha()
+        
+        # Set random position at the top of the screen
+        self.pos_x = random.randint(40, Game.instance.width)
+        self.pos_y = random.randint(-300, -100)
+        
+        # Get the image rectangle and set its position
+        self.rect = self.image.get_rect(center=(self.pos_x, self.pos_y))
+        
+    def update(self):
+        # Moves the planet downward and regenerates it when off-screen.
+        
+        self.rect.y += self.speed  # Move the planet downward
+
+        # If the planet moves below the screen, regenerate it
+        if self.rect.y > Game.instance.height + self.rect.height:
+            self.counter += 1  # Cycle to the next planet image
+            
+            # Loop back to the first image if we reach the end of the list
+            if self.counter == len(Planet.PLANET_LIST):
+                self.counter = 0
+           
+            self.generate_planet()  # Generate a new planet
 
 g = Game()
 g.run()
