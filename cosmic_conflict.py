@@ -22,7 +22,9 @@ class Game():
     FONT_SMALL = pygame.font.Font("assets/8-BIT WONDER.TTF",18)
 
     #Load constant images
-    BG_IMG = pygame.image.load("assets/background/background.png")
+    BG_IMG = {"BG" : pygame.image.load("assets/background/background.png"),
+              "OVERLAY" : pygame.image.load("assets/background/bg_overlay.png")}
+    
 
     #Load JSON file that stores game text
     def load_json_text(filename):
@@ -37,11 +39,19 @@ class Game():
                    "enemy" : pygame.image.load("assets/bullets/enemy_bullet.png")}
     
     SHIP_DATA = load_json_text("data/game_text.json")
+   
+    # Default configuration for game settings
+    CONFIG = {
+        "music": True,
+        "sound": True,
+        "HUD": True,
+        }
 
     #Define pygame groups
     bullet_group = pygame.sprite.Group()
     enemy_group = pygame.sprite.Group()
     planet_group = pygame.sprite.Group()
+    heart_group = pygame.sprite.Group()
 
     def __init__(self):
         #Assign instance to class variable
@@ -62,67 +72,71 @@ class Game():
             "ARMOURY": [self.armoury,self.armoury_event_handler],
             "HELP": [self.help,self.help_event_handler]}
 
-        #Default game control attributes
+        # Default game control attributes
         self.current_state = "MENU"
         self.running = True
         self.click = False
 
-        #Background attributes
-        self.BG_default_y = -self.BG_IMG.get_height()/2
+        # Background attributes
+        self.BG_default_y = -self.BG_IMG["BG"].get_height()/2
         self.BG_y = self.BG_default_y
 
-        #Available buttons
+        # Available buttons
         self.text_buttons = {
             "MENU" : [
-                TextButton("PLAY",self.FONT_MEDIUM, "WHITE", (140,300)),
-                TextButton("OPTIONS",self.FONT_MEDIUM, "WHITE", (110,375)),
-                TextButton("ARMOURY",self.FONT_MEDIUM, "WHITE", (95,450)),
-                TextButton("HELP",self.FONT_MEDIUM, "WHITE", (140,525))],
+                TextButton("PLAY", Game.FONT_MEDIUM, Game.COLORS["WHITE"], (140,300)),
+                TextButton("OPTIONS", Game.FONT_MEDIUM, Game.COLORS["WHITE"], (110,375)),
+                TextButton("ARMOURY", Game.FONT_MEDIUM, Game.COLORS["WHITE"], (95,450)),
+                TextButton("HELP", Game.FONT_MEDIUM, Game.COLORS["WHITE"], (140,525))],
 
-            "BACK" : TextButton("BACK",self.FONT_MEDIUM, "WHITE", (10,525))
+            "BACK" : TextButton("BACK", Game.FONT_MEDIUM, Game.COLORS["WHITE"], (10,525)),
+            
+            "OPTIONS" : [TextButton("music enabled", Game.FONT_SMALL, Game.COLORS["GREEN"], (10,100)),
+                        TextButton("sound enabled", Game.FONT_SMALL, Game.COLORS["GREEN"], (10,140)),
+                        TextButton("HUD enabled", Game.FONT_SMALL, Game.COLORS["GREEN"], (10,180))]
+
             }
 
-        #Horizontal pixel spacing width
+        # Horizontal pixel spacing width
         spacing = 130
-        #Available image buttons
+        # Available image buttons
         self.image_buttons = {
             "ARMOURY": [ImageButton(img, f"SHIP{Game.SHIP_LIST.index(img) + 1}", ((Game.SHIP_LIST.index(img) * spacing), 130), "ship") for img in Game.SHIP_LIST],
             }
           
         self.selected_ship_description = Game.instance.SHIP_DATA.get("SHIP1")
       
-        #Initialise default player ship
+        # Initialise default player ship
         self.player = Player("SHIP1")
         self.initialise_planets()
-   
-    #Create non-button text 
+    # Create non-button text 
     def text(self, message, font, color, pos):
         #Create text surface and rect 
         text_surface = font.render(message, True, (self.COLORS[color]))
-        #Render text
+        # Render text
         self.screen.blit(text_surface, pos)
 
     def set_screen_size(self, width):
         self.width = width
         self.screen = pygame.display.set_mode((self.width, self.height))
 
-    #Immersive background logic
+    # Immersive background logic
     def move_background(self):
-        #Increment position downwards
+        # Increment position downwards
         self.BG_y += 0.5
-        #Check if reached top edge of screen
+        # Check if reached top edge of screen
         if self.BG_y >= 0:
             #Reset Y value to -600
             self.BG_y = self.BG_default_y
     
     def global_UI_elements(self):
-        #Display backgrounds for current states
+        # Display backgrounds for current states
         if self.current_state != "ARMOURY":
-            self.screen.blit(self.BG_IMG, (0, self.BG_y))
-            self.move_background()
+            self.screen.blit(self.BG_IMG["BG"], (0, self.BG_y))
+            self.move_background()       
         else:
             self.screen.fill(self.COLORS["bg_color"])
-        #Display headings for current state
+        # Display headings for current state
         if self.current_state != "MENU" and self.current_state != "PLAY":
             self.text(self.current_state,self.FONT_LARGE, "WHITE", (10,30))
     
@@ -132,29 +146,47 @@ class Game():
             planet = Planet()
             self.planet_group.add(planet)
     
+    def initialise_hearts(self):
+        num_hearts = self.player.lives
+        x_initial = 450
+        y_initial = 65
+
+        for i in range(num_hearts):
+            heart = Heart(x_initial, y_initial)
+            self.heart_group.add(heart)
+
+            # Move to the right for the next heart
+            x_initial += 100
+
+            # Every 3 hearts, reset x and move down
+            if (i+1) % 3 == 0:
+                x_initial = 450  # Reset to the starting x position
+                y_initial += 100  # Move down to the next row
+
+    
     def run(self):
         while self.running:
-            #Executes events of current state
+            # Executes events of current state
             self.process_events()
-            #Manages global UI elements
+            # Manages global UI elements
             self.global_UI_elements()
-            #Executes logic of current state
+            # Executes logic of current state
             self.states[self.current_state][0]()
-            #Render and update screen
+            # Render and update screen
             self.global_render()
             
         pygame.quit()
         
     def process_events(self):
          for event in pygame.event.get():
-            #Global event handling
+            # Global event handling
             if event.type == pygame.QUIT:
                 self.running = False
 
-            #State-specific event handling
+            # State-specific event handling
             self.states[self.current_state][1](event)
 
-    #Global rendering
+    # Global rendering
     def global_render(self):
         pygame.display.update()
         self.clock.tick(60)
@@ -162,61 +194,73 @@ class Game():
     def mouse_click_event(self, event):
         self.get_mouse_pos()
         
-        #Check for LMB press
+        # Check for LMB press
         self.click = False
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             self.click = True
 
     def get_mouse_pos(self):
-        #Get mouse coordinates
+        # Get mouse coordinates
         self.mx, self.my = pygame.mouse.get_pos()
 
     def menu(self):
-        #Menu logic
+        # Menu logic
         self.text("COSMIC CONFLICT",self.FONT_MEDIUM, "YELLOW", (8,30))
         self.text("HIGHSCORE 0",self.FONT_SMALL, "WHITE", (100,100))
 
-        #Load and display menu buttons
+        # Load and display menu buttons
         for button in self.text_buttons["MENU"]:
             button.update()
-       
+    
+    def display_HUD(self):
+        if Game.CONFIG["HUD"] and self.width != 700:
+            self.initialise_hearts()
+            self.set_screen_size(700)
+        
+        self.screen.blit(Game.BG_IMG["OVERLAY"], (400, 0))
+        self.heart_group.draw(self.screen)
 
+    
     def play(self):
-        #Play logic 
+        # Play logic 
        
-        #Update and draw sprite groups
+        # Update and draw sprite groups
         self.planet_group.draw(self.screen)
         self.bullet_group.draw(self.screen)
-       
         self.planet_group.update()
         self.bullet_group.update()
         self.player.update()
+       
+        self.display_HUD()
     
-    #Options Logic
+    # Options Logic
     def options(self):
         #Options UI 
+        for button in self.text_buttons["OPTIONS"]:
+            button.update()
+        
         self.text_buttons["BACK"].update()
-        #Options Logic
+        # Options Logic
 
-    #Armoury Logic
+    # Armoury Logic
     def armoury(self):
-        #Armoury UI
+        # Armoury UI
         self.text("select ship", self.FONT_SMALL, "WHITE", (10,80))
         self.text_buttons["BACK"].update()
-        #Display Ships
+        # Display Ships
         for ship in self.image_buttons["ARMOURY"]:
             ship.update()
             
-        #Resize screen for armoury state
+        # Resize screen for armoury state
         if self.current_state == "ARMOURY" and self.width != 800:
             self.set_screen_size(800)
-        #Reset screen to default width 
+        # Reset screen to default width 
         elif self.current_state != "ARMOURY" and self.width != 400:
             self.set_screen_size(400)
         
-    #Help Logic
+    # Help Logic
     def help(self):
-        #Help UI
+        # Help UI
         self.text_buttons["BACK"].update()
         
     def menu_event_handler(self, event):
@@ -257,7 +301,7 @@ class Player(pygame.sprite.Sprite):
         self.type = Game.instance.selected_ship_description["type"]
         self.fire_rate = Game.instance.selected_ship_description["fire rate"] * 10
         self.bullet_speed = Game.instance.selected_ship_description["bullet speed"]
-        
+        print(self.lives)
         # Determine the correct ship image index based on selection
         index = list(Game.instance.SHIP_DATA).index(self.selected_ship)
         self.image = Player.PLAYER_SHIP_LIST[index]
@@ -279,16 +323,16 @@ class Player(pygame.sprite.Sprite):
         if key[pygame.K_a]: 
             self.rect.x -= self.speed  
             if self.rect.x < -self.rect.width:  # Off the left edge
-                self.rect.x = Game.instance.width  # Reappear on the right
+                self.rect.x = 400  # Reappear on the right
      
         if key[pygame.K_d]: 
             self.rect.x += self.speed
-            if self.rect.x > Game.instance.width:  # Off the right edge
+            if self.rect.x > 400:  # Off the right edge
                 self.rect.x = -self.rect.width  # Reappear on the left
       
         if key[pygame.K_w] and self.rect.y > 0: 
             self.rect.y -= self.speed
-        if key[pygame.K_s] and self.rect.y < Game.instance.height - self.rect.width: 
+        if key[pygame.K_s] and self.rect.y < Game.instance.height - self.rect.height: 
             self.rect.y += self.speed
 
     def shoot_bullet(self, key):       
@@ -385,8 +429,27 @@ class TextButton(Button):
         #Dictionary lookup
         if self.message in Game.instance.states:
             Game.instance.current_state = self.message
+        
         elif self.message == "BACK":
             Game.instance.current_state = "MENU"
+        
+        elif 'enabled' in self.message:
+            for setting in Game.instance.CONFIG:
+                if setting in self.message:
+                    # Disable setting if clicked
+                    Game.instance.CONFIG[setting] = False
+                    self.color = Game.instance.COLORS["RED"]
+                    self.message = f"{setting} disabled"
+       
+        elif 'disabled' in self.message:
+            for setting in Game.instance.CONFIG:
+                if setting in self.message:
+                    # Enable setting if clicked
+                    Game.instance.CONFIG[setting] = True
+                    self.color = Game.instance.COLORS["GREEN"]
+                    self.message = f"{setting} enabled"
+                    
+        Game.instance.click = False       
 
     def on_hover(self):
         #Highlight button different color for usability
@@ -394,7 +457,7 @@ class TextButton(Button):
 
     def on_unhover(self):
         #Rest button to white when not hovering
-        self.button_surface = self.font.render(self.message,False,(Game.instance.COLORS["WHITE"]))
+        self.button_surface = self.font.render(self.message,False,(self.color))
 
 class Bullet(pygame.sprite.Sprite):
     def __init__(self, x, y, speed, is_player=True, direction=None):
@@ -443,13 +506,10 @@ class Bullet(pygame.sprite.Sprite):
         if pygame.sprite.groupcollide(Game.instance.bullet_group, Game.instance.enemy_group, True, True):
             # Renew player's ammo upon a destroyed enemy
             Game.instance.player.ammo += 2
-
-import pygame
-import random
-
+            
 class Planet(pygame.sprite.Sprite):
     # Load all planet images once and store them in a class-level list
-    PLANET_LIST = [pygame.image.load(f"assets\planets\planet_{i}.png") 
+    PLANET_LIST = [pygame.image.load(f"assets/planets/planet_{i}.png") 
                    for i in range(1, 5)]
    
     def __init__(self):
@@ -464,7 +524,7 @@ class Planet(pygame.sprite.Sprite):
         self.speed = 1  # Set the falling speed of the planet
     
         # Randomly determine planet scale within the  range
-        lower_scale, max_scale = 1.2, 1.8
+        lower_scale, max_scale = 1.15, 1.8
         self.scale = random.uniform(lower_scale, max_scale)
         
         # Rotate and scale the planet image
@@ -480,19 +540,33 @@ class Planet(pygame.sprite.Sprite):
         self.rect = self.image.get_rect(center=(self.pos_x, self.pos_y))
         
     def update(self):
-        # Moves the planet downward and regenerates it when off-screen.
-        
-        self.rect.y += self.speed  # Move the planet downward
+        self.handle_movement()
 
+    def handle_movement(self):
+        # Moves the planet downward and regenerates it when off-screen.
+        self.rect.y += self.speed  # Move the planet downward
         # If the planet moves below the screen, regenerate it
         if self.rect.y > Game.instance.height + self.rect.height:
             self.counter += 1  # Cycle to the next planet image
-            
+
             # Loop back to the first image if we reach the end of the list
             if self.counter == len(Planet.PLANET_LIST):
                 self.counter = 0
            
             self.generate_planet()  # Generate a new planet
+
+    
+class Heart(pygame.sprite.Sprite):
+    HEART_IMG = [pygame.image.load(f"assets/misc/heart{i}.png") for i in range(1,3)]
+    def __init__(self, x, y):
+        super().__init__()
+        self.pos_x = x
+        self.pos_y = y
+        self.image = Heart.HEART_IMG[0]
+        self.rect = self.image.get_rect(center = ((self.pos_x, self.pos_y)))
+    
+    def update(self):
+        Game.instance.screen.blit(self.image, self.rect)
 
 g = Game()
 g.run()

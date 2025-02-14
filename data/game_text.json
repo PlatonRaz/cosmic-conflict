@@ -12,7 +12,7 @@
     "SHIP2": {
         "name": "Pandora",
         "speed": 70,
-        "lives": 1,
+        "lives": 2,
         "ammo": 5,
         "fire rate" : 40,
         "bullet speed" : 10,
