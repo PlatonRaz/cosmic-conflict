@@ -79,8 +79,9 @@ class Game():
 
         # Background attributes
         self.BG_default_y = -self.BG_IMG["BG"].get_height()/2
+        self.BG_default_x = -self.BG_IMG["BG"].get_width()/3
         self.BG_y = self.BG_default_y
-
+        self.BG_x = self.BG_default_x
         # Available buttons
         self.text_buttons = {
             "MENU" : [
@@ -91,9 +92,8 @@ class Game():
 
             "BACK" : TextButton("BACK", Game.FONT_MEDIUM, Game.COLORS["WHITE"], (10,525)),
             
-            "OPTIONS" : [TextButton("music enabled", Game.FONT_SMALL, Game.COLORS["GREEN"], (10,100)),
-                        TextButton("sound enabled", Game.FONT_SMALL, Game.COLORS["GREEN"], (10,140)),
-                        TextButton("HUD enabled", Game.FONT_SMALL, Game.COLORS["GREEN"], (10,180))]
+            "OPTIONS" : [TextButton(f"{setting} enabled", Game.FONT_SMALL, Game.COLORS["GREEN"],
+             (10,(100 + list(Game.CONFIG).index(setting) * 40))) for setting in Game.CONFIG]
 
             }
 
@@ -124,6 +124,21 @@ class Game():
     def move_background(self):
         # Increment position downwards
         self.BG_y += 0.5
+        key = pygame.key.get_pressed()
+
+        if key[pygame.K_d]:
+            self.BG_x -= 0.5
+        
+        elif key[pygame.K_a]:
+            self.BG_x += 0.5
+
+        # Check if reached side edges
+        if self.BG_x <= -800:
+            self.BG_x = self.BG_default_x
+      
+        elif self.BG_x >= 0:
+            self.BG_x = self.BG_default_x
+
         # Check if reached top edge of screen
         if self.BG_y >= 0:
             #Reset Y value to -600
@@ -132,7 +147,7 @@ class Game():
     def global_UI_elements(self):
         # Display backgrounds for current states
         if self.current_state != "ARMOURY":
-            self.screen.blit(self.BG_IMG["BG"], (0, self.BG_y))
+            self.screen.blit(self.BG_IMG["BG"], (self.BG_x, self.BG_y))
             self.move_background()       
         else:
             self.screen.fill(self.COLORS["bg_color"])
@@ -203,6 +218,17 @@ class Game():
         # Get mouse coordinates
         self.mx, self.my = pygame.mouse.get_pos()
 
+    def display_HUD(self):
+        if Game.CONFIG["HUD"] and self.width != 700:
+            self.set_screen_size(700)
+        
+        self.screen.blit(Game.BG_IMG["OVERLAY"], (400, 0))
+
+
+
+
+            #self.initialise_hearts()
+      #  self.heart_group.draw(self.screen)
     def menu(self):
         # Menu logic
         self.text("COSMIC CONFLICT",self.FONT_MEDIUM, "YELLOW", (8,30))
@@ -211,15 +237,6 @@ class Game():
         # Load and display menu buttons
         for button in self.text_buttons["MENU"]:
             button.update()
-    
-    def display_HUD(self):
-        if Game.CONFIG["HUD"] and self.width != 700:
-            self.initialise_hearts()
-            self.set_screen_size(700)
-        
-        self.screen.blit(Game.BG_IMG["OVERLAY"], (400, 0))
-        self.heart_group.draw(self.screen)
-
     
     def play(self):
         # Play logic 
@@ -230,7 +247,6 @@ class Game():
         self.planet_group.update()
         self.bullet_group.update()
         self.player.update()
-       
         self.display_HUD()
     
     # Options Logic
@@ -301,7 +317,7 @@ class Player(pygame.sprite.Sprite):
         self.type = Game.instance.selected_ship_description["type"]
         self.fire_rate = Game.instance.selected_ship_description["fire rate"] * 10
         self.bullet_speed = Game.instance.selected_ship_description["bullet speed"]
-        print(self.lives)
+
         # Determine the correct ship image index based on selection
         index = list(Game.instance.SHIP_DATA).index(self.selected_ship)
         self.image = Player.PLAYER_SHIP_LIST[index]
@@ -412,7 +428,6 @@ class ImageButton(Button):
 
     def on_click(self):
         if self.on_click_action == "ship":
-            print(Game.instance.SHIP_DATA.get(self.button_name))
             Game.instance.player = Player(self.button_name)
     
 class TextButton(Button):
@@ -448,7 +463,7 @@ class TextButton(Button):
                     Game.instance.CONFIG[setting] = True
                     self.color = Game.instance.COLORS["GREEN"]
                     self.message = f"{setting} enabled"
-                    
+            
         Game.instance.click = False       
 
     def on_hover(self):
@@ -543,8 +558,21 @@ class Planet(pygame.sprite.Sprite):
         self.handle_movement()
 
     def handle_movement(self):
+        key = pygame.key.get_pressed()
         # Moves the planet downward and regenerates it when off-screen.
         self.rect.y += self.speed  # Move the planet downward
+
+        if self.rect.y >= -self.rect.height:
+            if key[pygame.K_a]: 
+                self.rect.x +=  1
+
+            elif key[pygame.K_d]: 
+                self.rect.x -=  1
+            
+       
+        
+     
+
         # If the planet moves below the screen, regenerate it
         if self.rect.y > Game.instance.height + self.rect.height:
             self.counter += 1  # Cycle to the next planet image
@@ -555,7 +583,6 @@ class Planet(pygame.sprite.Sprite):
            
             self.generate_planet()  # Generate a new planet
 
-    
 class Heart(pygame.sprite.Sprite):
     HEART_IMG = [pygame.image.load(f"assets/misc/heart{i}.png") for i in range(1,3)]
     def __init__(self, x, y):
@@ -570,3 +597,11 @@ class Heart(pygame.sprite.Sprite):
 
 g = Game()
 g.run()
+
+"""
+TO DO
+
+- Option Toggles
+- HUD, Hearts
+
+"""
