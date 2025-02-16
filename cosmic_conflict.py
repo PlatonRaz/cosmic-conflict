@@ -109,6 +109,7 @@ class Game():
         # Initialise default player ship
         self.player = Player("SHIP1")
         self.initialise_planets()
+
     # Create non-button text 
     def text(self, message, font, color, pos):
         #Create text surface and rect 
@@ -122,14 +123,24 @@ class Game():
 
     # Immersive background logic
     def move_background(self):
-        # Increment position downwards
-        self.BG_y += 0.5
         key = pygame.key.get_pressed()
+        
+        # Check if the player is touching the bottom edge
+        touching_bottom = self.player.rect.bottom > self.height
 
+        # If 'S' is pressed and player is NOT touching the bottom edge → move up (-0.6)
+        if key[pygame.K_s] and not touching_bottom:
+            self.BG_y -= 0.6
+        else:
+            # In all other cases, move down by 0.5
+            self.BG_y += 0.5
+
+        # Handle other movement keys
         if key[pygame.K_d]:
             self.BG_x -= 0.5
-        
-        elif key[pygame.K_a]:
+        if key[pygame.K_w]:
+            self.BG_y += 0.5
+        if key[pygame.K_a]:
             self.BG_x += 0.5
 
         # Check if reached side edges
@@ -242,7 +253,6 @@ class Game():
         # Play logic 
        
         # Update and draw sprite groups
-        self.planet_group.draw(self.screen)
         self.bullet_group.draw(self.screen)
         self.planet_group.update()
         self.bullet_group.update()
@@ -546,35 +556,44 @@ class Planet(pygame.sprite.Sprite):
         self.image = pygame.transform.rotozoom(
             Planet.PLANET_LIST[self.counter], self.angle, self.scale
         ).convert_alpha()
-        
+
         # Set random position at the top of the screen
-        self.pos_x = random.randint(40, Game.instance.width)
-        self.pos_y = random.randint(-300, -100)
-        
+        self.pos_x = random.randint(-50, (Game.instance.width - (self.image.get_width() + 200)))
+        self.pos_y = -self.image.get_height()
+
         # Get the image rectangle and set its position
         self.rect = self.image.get_rect(center=(self.pos_x, self.pos_y))
         
     def update(self):
         self.handle_movement()
+        self.render()
+  
+    def render(self):
+        Game.instance.screen.blit(self.image, (self.pos_x, self.pos_y))
 
     def handle_movement(self):
         key = pygame.key.get_pressed()
-        # Moves the planet downward and regenerates it when off-screen.
-        self.rect.y += self.speed  # Move the planet downward
-
-        if self.rect.y >= -self.rect.height:
-            if key[pygame.K_a]: 
-                self.rect.x +=  1
-
-            elif key[pygame.K_d]: 
-                self.rect.x -=  1
-            
        
+         # Check if the player is touching the bottom edge
+        touching_bottom = Game.instance.player.rect.bottom > Game.instance.height
         
-     
+        if key[pygame.K_s] and not touching_bottom:
+            self.pos_y -= self.speed
+        else:
+            self.pos_y += self.speed
 
+        # Moves the planet downward and regenerates it when off-screen.
+        if self.pos_y >= -self.rect.height:
+           
+            if key[pygame.K_a]: 
+                self.pos_x +=  self.speed
+            if key[pygame.K_w]: 
+                self.pos_y +=  self.speed
+            if key[pygame.K_d]: 
+                self.pos_x -=  self.speed
+            
         # If the planet moves below the screen, regenerate it
-        if self.rect.y > Game.instance.height + self.rect.height:
+        if self.pos_y > Game.instance.height + self.rect.height:
             self.counter += 1  # Cycle to the next planet image
 
             # Loop back to the first image if we reach the end of the list
