@@ -45,6 +45,7 @@ class Game():
         "music": True,
         "sound": True,
         "HUD": True,
+        "wrapping" : False
         }
 
     #Define pygame groups
@@ -91,8 +92,15 @@ class Game():
 
             "BACK" : TextButton("BACK", Game.FONT_MEDIUM, Game.COLORS["WHITE"], (10,525)),
             
-            "OPTIONS" : [TextButton(f"{setting} enabled", Game.FONT_SMALL, Game.COLORS["GREEN"],
-             (10,(100 + list(Game.CONFIG).index(setting) * 40))) for setting in Game.CONFIG]
+            "OPTIONS": [
+                    TextButton(
+                        f"{setting} enabled" if Game.CONFIG[setting] else f"{setting} disabled",
+                        Game.FONT_SMALL,
+                        Game.COLORS["GREEN"] if Game.CONFIG[setting] else Game.COLORS["RED"],
+                        (10, (100 + list(Game.CONFIG).index(setting) * 40))
+                    )
+                    for setting in Game.CONFIG]
+
 
             }
 
@@ -347,20 +355,30 @@ class Player(pygame.sprite.Sprite):
         self.render()
 
     def handle_movement(self, key):
-        #Check for key press and if within screen bounds
+        # Check for key press and movement based on wrapping setting
         if key[pygame.K_a]:  
             self.rect.x -= self.speed  
-            if self.rect.x < -self.rect.width:  # Off the left edge
-                self.rect.x = 400  # Reappear on the right
-                if key[pygame.K_w]:  # If also pressing W, move to bottom
-                    self.rect.y = Game.instance.height - (self.rect.height + 15)
+
+            if Game.instance.CONFIG["wrapping"]:  # Wrapping logic
+                if self.rect.right < 0:  # If off-screen on the left side
+                    self.rect.x = 400  # Wrap to right side
+                    if key[pygame.K_w]:  # If pressing W, move to bottom
+                        self.rect.y = Game.instance.height - (self.rect.height + 15)
+
+            elif self.rect.x < 0:  # If wrapping is off, prevent moving past the left edge
+                self.rect.x = 0  # Restrict player to left edge
 
         if key[pygame.K_d]:  
             self.rect.x += self.speed  
-            if self.rect.x > 400:  # Off the right edge
-                self.rect.x = -self.rect.width  # Reappear on the left
-                if key[pygame.K_w]:  # If also pressing W, move to bottom
-                    self.rect.y = Game.instance.height - (self.rect.height + 15)
+
+            if Game.instance.CONFIG["wrapping"]:  # Wrapping logic
+                if self.rect.x > 400:  # If off-screen on the right side
+                    self.rect.x = -self.rect.width  # Wrap to left side
+                    if key[pygame.K_w]:  # If pressing W, move to bottom
+                        self.rect.y = Game.instance.height - (self.rect.height + 15)
+
+            elif self.rect.right > 400:  # If wrapping is off, prevent moving past the right edge
+                self.rect.x = 400 - self.rect.width  # Restrict player to right edge
 
                     
 
@@ -495,7 +513,6 @@ class TextButton(Button):
                     Game.instance.CONFIG[setting] = False
                     self.color = Game.instance.COLORS["RED"]
                     self.message = f"{setting} disabled"
-       
         elif 'disabled' in self.message:
             for setting in Game.instance.CONFIG:
                 if setting in self.message:
@@ -503,7 +520,7 @@ class TextButton(Button):
                     Game.instance.CONFIG[setting] = True
                     self.color = Game.instance.COLORS["GREEN"]
                     self.message = f"{setting} enabled"
-            
+
         Game.instance.click = False       
 
     def on_hover(self):
@@ -588,7 +605,7 @@ class Planet(pygame.sprite.Sprite):
         ).convert_alpha()
         
         # Set random position at the top of the screen
-        self.pos_x = random.randint(-50, abs(Game.instance.width - self.image.get_width() + 200))
+        self.pos_x = random.randint(-50, abs(Game.instance.width - self.image.get_width() + 400))
         self.pos_y = -self.image.get_height()
 
         # Get the image rectangle and set its position
@@ -605,8 +622,7 @@ class Planet(pygame.sprite.Sprite):
         key = pygame.key.get_pressed()
        
          # Check if the player is touching the bottom edge
-        touching_bottom = Game.instance.player.rect.bottom > Game.instance.height
-        
+        touching_bottom = Game.instance.player.rect.bottom >= Game.instance.height
         if key[pygame.K_s] and not touching_bottom:
             self.pos_y -= self.speed
         else:
