@@ -51,7 +51,6 @@ class Game():
     bullet_group = pygame.sprite.Group()
     enemy_group = pygame.sprite.Group()
     planet_group = pygame.sprite.Group()
-    heart_group = pygame.sprite.Group()
 
     def __init__(self):
         #Assign instance to class variable
@@ -172,24 +171,27 @@ class Game():
             planet = Planet()
             self.planet_group.add(planet)
     
-    def initialise_hearts(self):
-        num_hearts = self.player.lives
-        x_initial = 450
-        y_initial = 65
+    def initialise_hearts(self): 
+        self.heart_stack = []  # Resets  heart stack 
+
+        num_hearts = self.player.lives  # Number of initial hearts corresponds to player's lives
+        x_initial = 450  # Starting x coordinate for the first heart
+        y_initial = 65   # Starting y coordinate for the first heart
+
+
+        pos_x, pos_y = x_initial, y_initial
 
         for i in range(num_hearts):
-            heart = Heart(x_initial, y_initial)
-            self.heart_group.add(heart)
+            heart = Heart(pos_x, pos_y)  # Create a new heart object
+            self.heart_stack.append(heart)  # Store the heart in the stack
 
-            # Move to the right for the next heart
-            x_initial += 100
+            pos_x += 100  # Shift the x position of heart to the right for next heart
+            
+            # Every 3 hearts, reset x position and move down a row
+            if (i + 1) % 3 == 0:
+                pos_x = x_initial  # Reset x to initial position for a new row
+                pos_y += 100  # Move hearts down to the next row
 
-            # Every 3 hearts, reset x and move down
-            if (i+1) % 3 == 0:
-                x_initial = 450  # Reset to the starting x position
-                y_initial += 100  # Move down to the next row
-
-    
     def run(self):
         while self.running:
             # Executes events of current state
@@ -232,14 +234,13 @@ class Game():
     def display_HUD(self):
         if Game.CONFIG["HUD"] and self.width != 700:
             self.set_screen_size(700)
+            self.initialise_hearts()
         
         self.screen.blit(Game.BG_IMG["OVERLAY"], (400, 0))
-
-
-
-
-            #self.initialise_hearts()
-      #  self.heart_group.draw(self.screen)
+        
+        for heart in self.heart_stack:
+            heart.update()
+            
     def menu(self):
         # Menu logic
         self.text("COSMIC CONFLICT",self.FONT_MEDIUM, "YELLOW", (8,30))
@@ -264,6 +265,7 @@ class Game():
         #Options UI 
         for button in self.text_buttons["OPTIONS"]:
             button.update()
+            
         
         self.text_buttons["BACK"].update()
         # Options Logic
@@ -346,21 +348,27 @@ class Player(pygame.sprite.Sprite):
 
     def handle_movement(self, key):
         #Check for key press and if within screen bounds
-        if key[pygame.K_a]: 
+        if key[pygame.K_a]:  
             self.rect.x -= self.speed  
             if self.rect.x < -self.rect.width:  # Off the left edge
                 self.rect.x = 400  # Reappear on the right
-     
-        if key[pygame.K_d]: 
-            self.rect.x += self.speed
+                if key[pygame.K_w]:  # If also pressing W, move to bottom
+                    self.rect.y = Game.instance.height - (self.rect.height + 15)
+
+        if key[pygame.K_d]:  
+            self.rect.x += self.speed  
             if self.rect.x > 400:  # Off the right edge
                 self.rect.x = -self.rect.width  # Reappear on the left
-      
+                if key[pygame.K_w]:  # If also pressing W, move to bottom
+                    self.rect.y = Game.instance.height - (self.rect.height + 15)
+
+                    
+
         if key[pygame.K_w] and self.rect.y > 0: 
             self.rect.y -= self.speed
         if key[pygame.K_s] and self.rect.y < Game.instance.height - self.rect.height: 
             self.rect.y += self.speed
-
+    
     def shoot_bullet(self, key):       
        # Check if the spacebar is pressed
         if key[pygame.K_SPACE]:
@@ -378,7 +386,29 @@ class Player(pygame.sprite.Sprite):
 
                 self.ammo -= 1
                     
-               
+    def gain_life(self):
+        if self.lives < 6:  # Max life cap
+            self.lives += 1
+
+            # Determine next heart position
+            x_initial, y_initial = 450, 65
+            row = len(Game.instance.heart_stack) // 3
+            col = len(Game.instance.heart_stack) % 3
+
+            x_new = x_initial + col * 100
+            y_new = y_initial + row * 100
+
+            # Add new heart
+            heart = Heart(x_new, y_new)
+            Game.instance.heart_stack.append(heart)
+    
+    def lose_life(self):
+        if Game.instance.heart_stack:
+            Game.instance.heart_stack.pop()  # Remove from stack
+            Game.instance.player.lives -= 1
+        
+    
+
     def render(self):
         Game.instance.screen.blit(self.image, self.rect)  # Draw player sprite
 
@@ -556,9 +586,9 @@ class Planet(pygame.sprite.Sprite):
         self.image = pygame.transform.rotozoom(
             Planet.PLANET_LIST[self.counter], self.angle, self.scale
         ).convert_alpha()
-
+        
         # Set random position at the top of the screen
-        self.pos_x = random.randint(-50, (Game.instance.width - (self.image.get_width() + 200)))
+        self.pos_x = random.randint(-50, abs(Game.instance.width - self.image.get_width() + 200))
         self.pos_y = -self.image.get_height()
 
         # Get the image rectangle and set its position
@@ -612,6 +642,9 @@ class Heart(pygame.sprite.Sprite):
         self.rect = self.image.get_rect(center = ((self.pos_x, self.pos_y)))
     
     def update(self):
+        self.render()
+    
+    def render(self):
         Game.instance.screen.blit(self.image, self.rect)
 
 g = Game()
