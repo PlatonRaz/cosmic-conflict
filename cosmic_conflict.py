@@ -116,6 +116,7 @@ class Game():
         # Initialise default player ship
         self.player = Player("SHIP1")
         self.initialise_planets()
+     
 
     # Create non-button text 
     def text(self, message, font, color, pos):
@@ -135,7 +136,7 @@ class Game():
         # Check if the player is touching the bottom edge
         touching_bottom = self.player.rect.bottom > self.height
 
-        # If 'S' is pressed and player is NOT touching the bottom edge → move up (-0.6)
+        # If 'S' is pressed and player is NOT touching the bottom edge then move up (-0.6)
         if key[pygame.K_s] and not touching_bottom:
             self.BG_y -= 0.6
         else:
@@ -180,7 +181,6 @@ class Game():
             self.planet_group.add(planet)
     
     def initialise_hearts(self): 
-        self.heart_stack = []  # Resets  heart stack 
 
         num_hearts = self.player.lives  # Number of initial hearts corresponds to player's lives
         x_initial = 450  # Starting x coordinate for the first heart
@@ -191,7 +191,7 @@ class Game():
 
         for i in range(num_hearts):
             heart = Heart(pos_x, pos_y)  # Create a new heart object
-            self.heart_stack.append(heart)  # Store the heart in the stack
+            self.player.heart_stack.append(heart)  # Store the heart in the stack
 
             pos_x += 100  # Shift the x position of heart to the right for next heart
             
@@ -199,6 +199,26 @@ class Game():
             if (i + 1) % 3 == 0:
                 pos_x = x_initial  # Reset x to initial position for a new row
                 pos_y += 100  # Move hearts down to the next row
+    
+    def initialise_bullets(self): 
+        num_bullets = self.player.ammo  # Number of initial bullets corresponds to player's ammo
+        x_initial = 465  # Starting x coordinate for the first bullet
+        y_initial = 470  # Starting y coordinate for the first bullet
+        x_spacing, y_spacing = 40, 15
+
+        pos_x, pos_y = x_initial, y_initial
+
+        for i in range(num_bullets):
+            bullet = Bullet(pos_x, pos_y, 0)  # Create a new bullet object
+            self.player.bullet_stack.append(bullet)  # Store the bullet in the stack
+            self.bullet_group.add(bullet)
+            pos_y += y_spacing  # Shift the y position of the bullet downward for the next bullet
+
+            # Every 6 bullets, reset y position and move right to form a new column
+            if (i + 1) % 6 == 0:
+                pos_y = y_initial  # Reset y to initial position for a new column
+                pos_x += x_spacing  # Move bullets to the right to start a new column
+
 
     def run(self):
         while self.running:
@@ -243,12 +263,22 @@ class Game():
         if Game.CONFIG["HUD"] and self.width != 700:
             self.set_screen_size(700)
             self.initialise_hearts()
+            self.initialise_bullets()
         
         self.screen.blit(Game.BG_IMG["OVERLAY"], (400, 0))
         
-        for heart in self.heart_stack:
+        self.text("LIVES", self.FONT_SMALL, "WHITE", (510, 15))
+        self.text("HI SCORE", self.FONT_SMALL, "WHITE", (485, 215))
+        self.text("34", self.FONT_LARGE, "WHITE", (580, 283))
+
+        self.text("AMMO", self.FONT_SMALL, "WHITE", (500, 420))
+        
+        for bullet in self.player.bullet_stack:
+            bullet.update()
+        
+        for heart in self.player.heart_stack:
             heart.update()
-            
+       
     def menu(self):
         # Menu logic
         self.text("COSMIC CONFLICT",self.FONT_MEDIUM, "YELLOW", (8,30))
@@ -262,7 +292,6 @@ class Game():
         # Play logic 
        
         # Update and draw sprite groups
-        self.bullet_group.draw(self.screen)
         self.planet_group.update()
         self.bullet_group.update()
         self.player.update()
@@ -337,7 +366,7 @@ class Player(pygame.sprite.Sprite):
         self.type = Game.instance.selected_ship_description["type"]
         self.fire_rate = Game.instance.selected_ship_description["fire rate"] * 10
         self.bullet_speed = Game.instance.selected_ship_description["bullet speed"]
-
+        self.max_lives = self.lives
         # Determine the correct ship image index based on selection
         index = list(Game.instance.SHIP_DATA).index(self.selected_ship)
         self.image = Player.PLAYER_SHIP_LIST[index]
@@ -347,6 +376,9 @@ class Player(pygame.sprite.Sprite):
         self.rect = self.image.get_rect(center=default_pos)
     
         self.previous_time = pygame.time.get_ticks()
+        
+        self.heart_stack = []
+        self.bullet_stack = []
 
     def update(self):
         key = pygame.key.get_pressed()  # Returns tuple of bools for keys pressed
@@ -386,10 +418,11 @@ class Player(pygame.sprite.Sprite):
             self.rect.y -= self.speed
         if key[pygame.K_s] and self.rect.y < Game.instance.height - self.rect.height: 
             self.rect.y += self.speed
-    
+            self.gain_bullet()
+
     def shoot_bullet(self, key):       
        # Check if the spacebar is pressed
-        if key[pygame.K_SPACE]:
+        if key[pygame.K_SPACE] and self.ammo > 0:
             # Get the current time in milliseconds
             current_time = pygame.time.get_ticks()
 
@@ -401,32 +434,62 @@ class Player(pygame.sprite.Sprite):
                     x, y, *direction = pattern  # Unpack tuple, direction is optional
                     bullet = Bullet(self.rect.x + x, self.rect.y + y, self.bullet_speed, True, *direction)
                     Game.instance.bullet_group.add(bullet)
+                
+                self.lose_bullet()
+                
+    def gain_bullet(self):
+        if self.ammo < 30:
+            self.ammo += 1
+            # Determine initial position 
+            x_initial, y_initial = 465, 470
+            bullets_per_column = 6
+            x_spacing, y_spacing = 40, 15  # Spacing between bullets
+            
+            # Determine position of the next bullet
+            bullet_count = len(self.bullet_stack)
+            col = bullet_count // bullets_per_column
+            row = bullet_count % bullets_per_column
 
-                self.ammo -= 1
-                    
+            x_new = x_initial + col * x_spacing
+            y_new = y_initial + row * y_spacing
+
+            # Add new bullet
+            bullet = Bullet(x_new, y_new, 0)
+            self.bullet_stack.append(bullet)
+
+    
+    def lose_bullet(self):
+        if self.bullet_stack:
+            self.bullet_stack.pop()  # Remove from stack
+            self.ammo -= 1
+
     def gain_life(self):
-        if self.lives < 6:  # Max life cap
+        if self.lives < self.max_lives:  # Ensure life count does not exceed max limit
             self.lives += 1
 
-            # Determine next heart position
-            x_initial, y_initial = 450, 65
-            row = len(Game.instance.heart_stack) // 3
-            col = len(Game.instance.heart_stack) % 3
+            # Grid layout parameters
+            x_initial, y_initial = 450, 65  # Starting position
+            hearts_per_row = 3  # Number of hearts per row
+            x_spacing, y_spacing = 30, 30  # Spacing between hearts
 
-            x_new = x_initial + col * 100
-            y_new = y_initial + row * 100
+            # Determine next heart position based on current count
+            heart_count = len(self.heart_stack)
+            row = heart_count // hearts_per_row
+            col = heart_count % hearts_per_row
+
+            x_new = x_initial + col * x_spacing
+            y_new = y_initial + row * y_spacing
 
             # Add new heart
             heart = Heart(x_new, y_new)
-            Game.instance.heart_stack.append(heart)
+            self.heart_stack.append(heart)
+
     
     def lose_life(self):
-        if Game.instance.heart_stack:
-            Game.instance.heart_stack.pop()  # Remove from stack
-            Game.instance.player.lives -= 1
+        if self.heart_stack:
+            self.heart_stack.pop()  # Remove from stack
+            self.lives -= 1
         
-    
-
     def render(self):
         Game.instance.screen.blit(self.image, self.rect)  # Draw player sprite
 
@@ -552,15 +615,20 @@ class Bullet(pygame.sprite.Sprite):
             elif self.direction == "NE":
                 self.image = pygame.transform.rotate(self.image, -15) # Rotate 15 degrees clockwise
         
-        # Set the bullet's rectangle for positioning and collision detectio
-        self.rect = self.image.get_rect(
-            center = ((x + Game.instance.player.rect.width//2), y)
-            )
+        # Set the bullet's rectangle for positioning and collision detection
+        if self.speed != 0:
+            self.rect = self.image.get_rect(
+                center = ((x + Game.instance.player.rect.width//2), y)
+                )
+        else:
+            self.rect = self.image.get_rect(
+                center = (x, y)
+                )
     
     def update(self):
         # Updates the bullet's position according to its trajectory
         self.handle_trajectory()
-    
+        self.render()
     def handle_trajectory(self):
         # Moves the bullet straight up
         self.rect.y -= self.speed 
@@ -578,6 +646,9 @@ class Bullet(pygame.sprite.Sprite):
         if pygame.sprite.groupcollide(Game.instance.bullet_group, Game.instance.enemy_group, True, True):
             # Renew player's ammo upon a destroyed enemy
             Game.instance.player.ammo += 2
+    
+    def render(self):
+        Game.instance.screen.blit(self.image, self.rect)
             
 class Planet(pygame.sprite.Sprite):
     # Load all planet images once and store them in a class-level list
