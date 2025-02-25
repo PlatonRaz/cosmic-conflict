@@ -1,9 +1,40 @@
 #Libraries
-import pygame, json, random
+import pygame, json, random, os
+from os import path 
 
 #Initialise all pygame modules
 pygame.init()
 #-----------------------------------------------------------------------------------------------------------------------------------------------
+
+# Class to handle loading and storing high score data  
+class Data():  
+    hs_file = "highscore.txt"  # File to store the high score  
+
+    def __init__(self):  
+        # Initializes the Data object and loads high score data. 
+        root = path.dirname(__file__)  # Gets the directory where cosmic_conflict.py is located  
+        self.data_dir = path.join(root, "data")
+        self.load_data()  
+
+    def load_data(self):  
+        # Loads high score data from the file or creates a new file if it doesn't exist 
+        os.makedirs(self.data_dir, exist_ok=True)  # Creates 'data' folder if it doesn't exist
+     
+        try:  
+            # Open and read the high score file  
+            with open(path.join(self.data_dir, Data.hs_file), "r+") as f:  
+                self.highscore = int(f.read())  # Read and convert the high score to an integer  
+        except:  
+            # If file doesn't exist or error occurs, create new file in folder
+            with open(path.join(self.data_dir, Data.hs_file), 'w'):  
+                self.highscore = 0  
+  
+    def write_highscore(self):
+        with open(path.join(self.data_dir, Data.hs_file), "w") as f:
+            f.write(str(self.highscore))  # Write the current high score as a string to the file
+
+
+
 class Game():
     #Define class variables
     instance = None
@@ -13,7 +44,8 @@ class Game():
               "RED":(255,0,0),
               "WHITE":(255,255,255),
               "GREEN":(0,255,0),
-              "YELLOW":(255,255,0)
+              "YELLOW":(255,255,0),
+              "ORANGE":(255, 180, 0)
               }
     
 
@@ -115,6 +147,7 @@ class Game():
       
         # Initialise default player ship
         self.player = Player("SHIP1")
+        self.data = Data()
         self.initialise_planets()
      
 
@@ -267,9 +300,10 @@ class Game():
         
         self.screen.blit(Game.BG_IMG["OVERLAY"], (400, 0))
         
-        self.text("LIVES", self.FONT_SMALL, "WHITE", (510, 15))
+        self.text("LIVES", self.FONT_SMALL, "WHITE", (512, 15))
         self.text("HI SCORE", self.FONT_SMALL, "WHITE", (485, 215))
-        self.text("34", self.FONT_LARGE, "WHITE", (580, 283))
+        self.text(str(self.data.highscore), self.FONT_LARGE, "ORANGE", (567, 260))
+        self.text(str(self.player.score), self.FONT_SMALL, "WHITE", (575, 330))
 
         self.text("AMMO", self.FONT_SMALL, "WHITE", (500, 420))
         
@@ -367,6 +401,7 @@ class Player(pygame.sprite.Sprite):
         self.fire_rate = Game.instance.selected_ship_description["fire rate"] * 10
         self.bullet_speed = Game.instance.selected_ship_description["bullet speed"]
         self.max_lives = self.lives
+        self.score = 0
         # Determine the correct ship image index based on selection
         index = list(Game.instance.SHIP_DATA).index(self.selected_ship)
         self.image = Player.PLAYER_SHIP_LIST[index]
@@ -418,7 +453,6 @@ class Player(pygame.sprite.Sprite):
             self.rect.y -= self.speed
         if key[pygame.K_s] and self.rect.y < Game.instance.height - self.rect.height: 
             self.rect.y += self.speed
-            self.gain_bullet()
 
     def shoot_bullet(self, key):       
        # Check if the spacebar is pressed
@@ -437,6 +471,7 @@ class Player(pygame.sprite.Sprite):
                 
                 self.lose_bullet()
                 
+
     def gain_bullet(self):
         if self.ammo < 30:
             self.ammo += 1
@@ -457,7 +492,6 @@ class Player(pygame.sprite.Sprite):
             bullet = Bullet(x_new, y_new, 0)
             self.bullet_stack.append(bullet)
 
-    
     def lose_bullet(self):
         if self.bullet_stack:
             self.bullet_stack.pop()  # Remove from stack
@@ -484,7 +518,6 @@ class Player(pygame.sprite.Sprite):
             heart = Heart(x_new, y_new)
             self.heart_stack.append(heart)
 
-    
     def lose_life(self):
         if self.heart_stack:
             self.heart_stack.pop()  # Remove from stack
@@ -629,6 +662,7 @@ class Bullet(pygame.sprite.Sprite):
         # Updates the bullet's position according to its trajectory
         self.handle_trajectory()
         self.render()
+ 
     def handle_trajectory(self):
         # Moves the bullet straight up
         self.rect.y -= self.speed 
@@ -646,6 +680,7 @@ class Bullet(pygame.sprite.Sprite):
         if pygame.sprite.groupcollide(Game.instance.bullet_group, Game.instance.enemy_group, True, True):
             # Renew player's ammo upon a destroyed enemy
             Game.instance.player.ammo += 2
+            Game.instance.player.score += 1
     
     def render(self):
         Game.instance.screen.blit(self.image, self.rect)
@@ -736,11 +771,3 @@ class Heart(pygame.sprite.Sprite):
 
 g = Game()
 g.run()
-
-"""
-TO DO
-
-- Option Toggles
-- HUD, Hearts
-
-"""
