@@ -22,16 +22,22 @@ class Data():
      
         try:  
             # Open and read the high score file  
-            with open(path.join(self.data_dir, Data.hs_file), "r+") as f:  
-                self.highscore = int(f.read())  # Read and convert the high score to an integer  
+            with open(path.join(self.data_dir, Data.hs_file), "r+") as f: 
+                contents = f.read()
+                if not contents.isdigit():
+                    self.highscore = 0 # Default high-score to 0 if file is corrupt (contains strings)
+                else:
+                    self.highscore = int(contents)
         except:  
             # If file doesn't exist or error occurs, create new file in folder
             with open(path.join(self.data_dir, Data.hs_file), 'w'):  
                 self.highscore = 0  
   
     def write_highscore(self):
-        with open(path.join(self.data_dir, Data.hs_file), "w") as f:
-            f.write(str(self.highscore))  # Write the current high score as a string to the file
+        if self.highscore < 99999: # Prevent high-score overflows 
+            self.highscore += 1
+            with open(path.join(self.data_dir, Data.hs_file), "w") as f:
+                f.write(str(self.highscore))  # Write the current high score as a string to the file
 
 
 
