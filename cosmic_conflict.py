@@ -44,7 +44,7 @@ class Data():
 class Game():
     #Define class variables
     instance = None
-    
+    GAME_OVER = False
     #Class level constants
     COLORS = {"bg_color":(38,33,56),
               "RED":(255,0,0),
@@ -90,6 +90,7 @@ class Game():
     bullet_group = pygame.sprite.Group()
     enemy_group = pygame.sprite.Group()
     planet_group = pygame.sprite.Group()
+    player_group = pygame.sprite.Group()
 
     def __init__(self):
         #Assign instance to class variable
@@ -153,10 +154,19 @@ class Game():
       
         # Initialise default player ship
         self.player = Player("SHIP1")
+        self.player_group.add(self.player)
         self.data = Data()
         self.initialise_planets()
-     
 
+        # Game Events
+        self.SPAWNENEMY = pygame.USEREVENT + 0
+        pygame.time.set_timer(self.SPAWNENEMY, 1700)
+        
+        self.ENEMYSHOOT = pygame.USEREVENT + 1
+        pygame.time.set_timer(self.ENEMYSHOOT,1200)
+
+    
+    
     # Create non-button text 
     def text(self, message, font, color, pos):
         #Create text surface and rect 
@@ -167,7 +177,7 @@ class Game():
     def set_screen_size(self, width):
         self.width = width
         self.screen = pygame.display.set_mode((self.width, self.height))
-
+    
     # Immersive background logic
     def move_background(self):
         key = pygame.key.get_pressed()
@@ -189,6 +199,7 @@ class Game():
             self.BG_y += 0.5
         if key[pygame.K_a]:
             self.BG_x += 0.5
+    
 
         # Check if reached side edges
         if self.BG_x <= -800:
@@ -332,9 +343,11 @@ class Game():
         # Play logic 
        
         # Update and draw sprite groups
-        self.planet_group.update()
         self.bullet_group.update()
-        self.player.update()
+        self.planet_group.update()
+        self.enemy_group.update()
+        #self.enemy_group.draw(self.screen)
+        self.player_group.update()
         self.display_HUD()
     
     # Options Logic
@@ -372,7 +385,14 @@ class Game():
         self.mouse_click_event(event)
     
     def play_event_handler(self, event):
-        pass
+        if self.player.lives > 0:
+            if event.type == self.ENEMYSHOOT:
+                for enemy in self.enemy_group:
+                    enemy.shoot_bullet()
+            
+            if event.type == self.SPAWNENEMY:
+                enemy = StandardEnemy()
+                self.enemy_group.add(enemy)
     
     def options_event_handler(self, event):
         self.mouse_click_event(event)
@@ -476,7 +496,6 @@ class Player(pygame.sprite.Sprite):
                     Game.instance.bullet_group.add(bullet)
                 
                 self.lose_bullet()
-                
 
     def gain_bullet(self):
         if self.ammo < 30:
@@ -667,12 +686,16 @@ class Bullet(pygame.sprite.Sprite):
     def update(self):
         # Updates the bullet's position according to its trajectory
         self.handle_trajectory()
+        self.handle_collision()
         self.render()
  
     def handle_trajectory(self):
         # Moves the bullet straight up
         self.rect.y -= self.speed 
-       
+
+        if self.rect.y < 0:
+            self.kill()
+
         # Apply horizontal movement to bullets 
         if self.direction == "NW":
             self.rect.x -= 2  # Move left
@@ -685,9 +708,10 @@ class Bullet(pygame.sprite.Sprite):
         # Handles collision detection and interaction with enemies.
         if pygame.sprite.groupcollide(Game.instance.bullet_group, Game.instance.enemy_group, True, True):
             # Renew player's ammo upon a destroyed enemy
-            Game.instance.player.ammo += 2
             Game.instance.player.score += 1
-    
+            Game.instance.player.gain_bullet()
+            Game.instance.player.gain_bullet()
+
     def render(self):
         Game.instance.screen.blit(self.image, self.rect)
             
@@ -759,6 +783,68 @@ class Planet(pygame.sprite.Sprite):
                 self.counter = 0
            
             self.generate_planet()  # Generate a new planet
+
+class Enemy(pygame.sprite.Sprite):
+    def __init__(self, image_list, speed, bullet_speed, pos_x, pos_y):
+        super().__init__()
+        self.speed = speed
+        self.bullet_speed = bullet_speed
+       
+        self.image_list = image_list
+        self.image = random.choice(self.image_list)
+        self.rect = self.image.get_rect(center=(pos_x, pos_y))
+      
+ 
+
+    def update(self):
+        '''To be overridden by child classes'''
+        pass
+    
+    def handle_behavior(self):
+        self.render()
+        self.collision_with_player()
+        self.despawn_if_offscreen()
+        self.move_relative_to_player()
+  
+    def collision_with_player(self):
+        if pygame.sprite.groupcollide(Game.instance.player_group, Game.instance.enemy_group, True, True):
+            Game.instance.game_over = True
+
+    def despawn_if_offscreen(self):
+        if self.rect.y >= Game.instance.height + 10:
+            self.kill()
+            Game.instance.player.lose_life()
+
+    def shoot_bullet(self):
+        enemy_bullet = Bullet(self.rect.centerx, self.rect.centery, self.bullet_speed, False)
+    
+    def render(self):
+        Game.instance.screen.blit(self.image, self.rect)
+
+    def move_relative_to_player(self):
+        key = pygame.key.get_pressed()
+        if key[pygame.K_d]:
+            self.rect.x -= 2
+        if key[pygame.K_w]:
+            self.rect.y += 2
+        if key[pygame.K_a]:
+            self.rect.x += 2
+
+class StandardEnemy(Enemy):
+    ENEMY_IMG = [pygame.image.load(f"assets/enemy/standard/alien{i}.png") for i in range(1,7)]
+
+    def __init__(self):
+        speed = random.randint(2, 5)
+        bullet_speed = 6
+        pos_x = random.randint(30,370)
+        pos_y = -100
+        super().__init__(StandardEnemy.ENEMY_IMG, speed, bullet_speed, pos_x, pos_y)
+    
+    def update(self):
+        self.rect.y += self.speed
+        self.handle_behavior()
+        
+
 
 class Heart(pygame.sprite.Sprite):
     HEART_IMG = [pygame.image.load(f"assets/misc/heart{i}.png") for i in range(1,3)]
