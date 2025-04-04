@@ -82,18 +82,19 @@ class Game():
     CONFIG = {
         "music": True,
         "sound": True,
-        "HUD": True,
+        "HUD": False,
         "wrapping" : False
         }
 
-    #Define pygame groups
+    # Pygame groups
     bullet_enemy_group = pygame.sprite.Group()
     bullet_player_group = pygame.sprite.Group()
     
     enemy_group = pygame.sprite.Group()
     player_group = pygame.sprite.Group()
-   
     planet_group = pygame.sprite.Group()
+
+    GROUPS = [bullet_player_group, bullet_enemy_group, planet_group, enemy_group, player_group]
 
     def __init__(self):
         #Assign instance to class variable
@@ -113,6 +114,7 @@ class Game():
             "OPTIONS": [self.options,self.options_event_handler],
             "ARMOURY": [self.armoury,self.armoury_event_handler],
             "HELP": [self.help,self.help_event_handler]}
+
 
         # Default game control attributes
         self.current_state = "MENU"
@@ -161,10 +163,86 @@ class Game():
         self.data = Data()
         self.initialise_planets()
 
-        # Game Events
-        self.SPAWNENEMY = pygame.USEREVENT + 0
-        pygame.time.set_timer(self.SPAWNENEMY, 1700)
+        # Wave System Attributes
+
+        self.current_wave = 0
+        self.wave_timer = 0  
+        self.wave_duration = 0
+        self.in_wave = False
+        self.waves_completed = False
+        self.diagonal_enemies_to_spawn = 0
+        self.enemies_spawned = False
         
+        self.last_spawn_time = 0
+        self.spawn_interval = 1700 # ms
+       
+        self.waves = [
+            self.wave_1, # Spawm Standard Enemies 
+            self.wave_2  # Spawn 6 Diagonal Enemies
+            ]
+        
+    
+        self.WAVE_EVENT = pygame.USEREVENT + 0
+        pygame.time.set_timer(self.WAVE_EVENT, 1000)
+        self.initialise_hearts()
+        self.initialise_bullets()
+
+    def wave_1(self):
+        '''Wave 1: Spawn Standard Enemies'''
+        # Initial setup when wave starts
+        if self.wave_timer == 0:
+            self.wave_duration = 15  # seconds
+            print("Wave 1: Standard enemies activated")
+        
+        # Spawning logic
+        current_time = pygame.time.get_ticks()
+        if current_time - self.last_spawn_time >= self.spawn_interval:
+            enemy = StandardEnemy()
+            self.enemy_group.add(enemy)
+            self.last_spawn_time = current_time
+        
+        # Completion conditions
+        if self.wave_timer >= self.wave_duration:
+            return True
+        return False
+    
+    def wave_2(self):
+        '''Wave 2: Spawn Diagonal Enemies in Formation'''
+        # Initial setup when wave starts
+        if self.wave_timer == 0:
+            self.wave_duration = 30  # seconds
+            print("Wave 2: Diagonal formation activated")
+        
+        # Spawn formation (only once)
+        x, y = 30, 50
+        x2, y2 = 200, -250
+        
+        if not self.enemies_spawned:
+             # Left group
+            for _ in range(3):
+                enemy = DiagonalEnemy(x, y)
+                y -= 100
+                x += 85
+                self.enemy_group.add(enemy)
+            
+            # Right group
+            for _ in range(3):
+                enemy = DiagonalEnemy(x2, y2)
+                y2 -= 100
+                x2 += 85
+                self.enemy_group.add(enemy)
+            
+         
+            self.enemies_spawned = True
+        
+        # Completion conditions
+        if len(self.enemy_group) == 0:  # All enemies defeated
+            return True
+        if self.wave_timer >= self.wave_duration:  # Time limit reached
+            return True
+        
+        return False
+
     # Create non-button text 
     def text(self, message, font, color, pos):
         #Create text surface and rect 
@@ -178,8 +256,10 @@ class Game():
     
     # Immersive background logic
     def move_background(self):
+        self.BG_y += 0.5
+
+        """
         key = pygame.key.get_pressed()
-        
         # Check if the player is touching the bottom edge
         touching_bottom = self.player.rect.bottom > self.height
 
@@ -189,7 +269,6 @@ class Game():
         else:
             # In all other cases, move down by 0.5
             self.BG_y += 0.5
-
         # Handle other movement keys
         if key[pygame.K_d]:
             self.BG_x -= 0.5
@@ -205,7 +284,7 @@ class Game():
       
         elif self.BG_x >= 0:
             self.BG_x = self.BG_default_x
-
+        """
         # Check if reached top edge of screen
         if self.BG_y >= 0:
             #Reset Y value to -600
@@ -310,8 +389,6 @@ class Game():
     def display_HUD(self):
         if Game.CONFIG["HUD"] and self.width != 700:
             self.set_screen_size(700)
-            self.initialise_hearts()
-            self.initialise_bullets()
         
         self.screen.blit(Game.BG_IMG["OVERLAY"], (400, 0))
         
@@ -339,16 +416,13 @@ class Game():
     
     def play(self):
         # Play logic 
-       
+        if self.GAME_OVER:
+            self.player.kill()
         # Update and draw sprite groups
-        self.planet_group.update()
-       
-        self.bullet_enemy_group.update()
-        self.enemy_group.update()
-      
-        self.player_group.update()
-        self.bullet_player_group.update()
 
+        for group in self.GROUPS:
+            group.update()
+       
         self.display_HUD()
     
     # Options Logic
@@ -386,9 +460,39 @@ class Game():
         self.mouse_click_event(event)
     
     def play_event_handler(self, event):
-        if event.type == self.SPAWNENEMY:
-            enemy = StandardEnemy()
-            self.enemy_group.add(enemy)
+        if event.type == self.WAVE_EVENT:
+            self.wave_timer += 1
+            
+            # Debug print to track wave state
+            print(f"Wave {self.current_wave + 1} - Timer: {self.wave_timer}/{self.wave_duration} - Enemies: {len(self.enemy_group)}")
+            
+            # If not in a wave, start the next one
+            if not self.in_wave:
+                if self.current_wave < len(self.waves):
+                    print(f"=== STARTING WAVE {self.current_wave + 1} ===")
+                    self.in_wave = True
+                    self.wave_timer = 0
+                    self.enemies_spawned = False
+                    self.last_spawn_time = pygame.time.get_ticks()
+                   
+            
+            # Process current wave
+            if self.in_wave:
+                wave_completed = self.waves[self.current_wave]()
+                
+                if wave_completed:
+                    print(f"=== WAVE {self.current_wave + 1} COMPLETED ===")
+                    self.in_wave = False
+                    self.current_wave += 1
+                    
+                    if self.current_wave >= len(self.waves):
+                        self.current_wave = 0  # Loop back to first wave
+
+
+
+
+           
+        
 
     def options_event_handler(self, event):
         self.mouse_click_event(event)
@@ -544,6 +648,9 @@ class Player(pygame.sprite.Sprite):
             self.heart_stack.pop()  # Remove from stack
             self.lives -= 1
         
+        if self.lives == 0:
+            Game.instance.GAME_OVER = True
+        
     def render(self):
         Game.instance.screen.blit(self.image, self.rect)  # Draw player sprite
 
@@ -603,8 +710,14 @@ class ImageButton(Button):
 
     def on_click(self):
         if self.on_click_action == "ship":
+            # Remove old player
+            Game.instance.player_group.empty()
             Game.instance.player = Player(self.button_name)
-    
+            Game.instance.player_group.add(Game.instance.player)
+            # Reinitialise player health, ammo
+            Game.instance.initialise_hearts()
+            Game.instance.initialise_bullets()
+
 class TextButton(Button):
     def __init__(self, message, font, color, pos):
         super().__init__(pos)
@@ -690,6 +803,7 @@ class Bullet(pygame.sprite.Sprite):
         if self.is_player:
             self.rect.y -= self.speed 
         else:
+            """  
             key = pygame.key.get_pressed()
 
             if key[pygame.K_d]:
@@ -698,7 +812,7 @@ class Bullet(pygame.sprite.Sprite):
                 self.rect.y += 1
             if key[pygame.K_a]:
                 self.rect.x += 1
-
+            """
             self.rect.y += self.speed 
 
         if self.rect.y < 0:
@@ -720,9 +834,8 @@ class Bullet(pygame.sprite.Sprite):
             Game.instance.player.gain_bullet()
             Game.instance.player.gain_bullet()
         
-        elif pygame.sprite.groupcollide(Game.instance.bullet_enemy_group, Game.instance.player_group, True, True):
-            # Destroy player, game over
-            Game.instance.GAME_OVER = True
+        elif pygame.sprite.groupcollide(Game.instance.bullet_enemy_group, Game.instance.player_group, True, False):
+            Game.instance.player.lose_life()
 
     def render(self):
         Game.instance.screen.blit(self.image, self.rect)
@@ -753,7 +866,7 @@ class Planet(pygame.sprite.Sprite):
         ).convert_alpha()
         
         # Set random position at the top of the screen
-        self.pos_x = random.randint(-50, abs(Game.instance.width - self.image.get_width() + 400))
+        self.pos_x = random.randint(-50, abs(Game.instance.width - (self.image.get_width() + 400)))
         self.pos_y = -self.image.get_height()
 
         # Get the image rectangle and set its position
@@ -767,10 +880,12 @@ class Planet(pygame.sprite.Sprite):
         Game.instance.screen.blit(self.image, (self.pos_x, self.pos_y))
 
     def handle_movement(self):
+        """
         key = pygame.key.get_pressed()
        
          # Check if the player is touching the bottom edge
         touching_bottom = Game.instance.player.rect.bottom >= Game.instance.height
+
         if key[pygame.K_s] and not touching_bottom:
             self.pos_y -= self.speed
         else:
@@ -785,7 +900,7 @@ class Planet(pygame.sprite.Sprite):
                 self.pos_y +=  self.speed
             if key[pygame.K_d]: 
                 self.pos_x -=  self.speed
-            
+            """
         # If the planet moves below the screen, regenerate it
         if self.pos_y > Game.instance.height + self.rect.height:
             self.counter += 1  # Cycle to the next planet image
@@ -818,12 +933,12 @@ class Enemy(pygame.sprite.Sprite):
         self.render()
         self.collision_with_player()
         self.despawn_if_offscreen()
-        self.move_relative_to_player()
+        #self.move_relative_to_player()
         self.shoot_bullet()
    
     def collision_with_player(self):
         if pygame.sprite.groupcollide(Game.instance.player_group, Game.instance.enemy_group, True, True):
-            Game.instance.game_over = True
+            Game.instance.GAME_OVER = True
 
     def despawn_if_offscreen(self):
         if self.rect.y >= Game.instance.height + 10:
@@ -833,7 +948,7 @@ class Enemy(pygame.sprite.Sprite):
     def shoot_bullet(self):
         current_time = pygame.time.get_ticks() 
        
-        if current_time >= self.next_shot_time and Game.instance.player.lives > 0:
+        if current_time >= self.next_shot_time and not Game.instance.GAME_OVER:
             enemy_bullet = Bullet(self.rect.x-5, self.rect.bottom, self.bullet_speed, False)
             Game.instance.bullet_enemy_group.add(enemy_bullet)
             
@@ -841,7 +956,7 @@ class Enemy(pygame.sprite.Sprite):
 
     def render(self):
         Game.instance.screen.blit(self.image, self.rect)
-
+    """
     def move_relative_to_player(self):
         key = pygame.key.get_pressed()
         if key[pygame.K_d]:
@@ -850,6 +965,7 @@ class Enemy(pygame.sprite.Sprite):
             self.rect.y += 1
         if key[pygame.K_a]:
             self.rect.x += 1
+    """
 
 class StandardEnemy(Enemy):
     ENEMY_IMG = [pygame.image.load(f"assets/enemy/standard/alien{i}.png") for i in range(1,7)]
@@ -857,7 +973,7 @@ class StandardEnemy(Enemy):
     def __init__(self):
         speed = random.randint(2, 5)
         bullet_speed = 6
-        pos_x = random.randint(30,370)
+        pos_x = random.randint(30, 370)
         pos_y = -100
         
         # Individual fire timing
@@ -867,9 +983,34 @@ class StandardEnemy(Enemy):
     def update(self):
         super().update()
         self.rect.y += self.speed
-        
-        
+              
+class DiagonalEnemy(Enemy):
+    ENEMY_IMG = [pygame.image.load(f"assets/enemy/diagonal/diagonal_alien{i}.png") for i in range(1, 2)]
+ 
 
+    def __init__(self, x, y):
+        self.speed_x = 4
+        speed = 2
+        bullet_speed = 6
+        shoot_interval = 1200
+
+
+        super().__init__(DiagonalEnemy.ENEMY_IMG, speed, bullet_speed, shoot_interval, x, y)
+
+
+
+    def update(self):
+        super().handle_behavior()
+        # Diagonal Movement
+        self.rect.y += self.speed
+        self.rect.x -= self.speed_x
+        
+        # Inverse speeds when touches wall
+        if self.rect.x < 390:
+            if self.rect.x  < 0:
+                self.speed_x *= -1
+            if self.rect.x + self.rect.width > 400:
+                self.speed_x *= -1
 
 class Heart(pygame.sprite.Sprite):
     HEART_IMG = [pygame.image.load(f"assets/misc/heart{i}.png") for i in range(1,3)]
