@@ -94,8 +94,9 @@ class Game():
     player_group = pygame.sprite.Group()
     planet_group = pygame.sprite.Group()
     powerup_group = pygame.sprite.Group()
-    
-    GROUPS = [powerup_group, bullet_player_group, bullet_enemy_group, planet_group, enemy_group, player_group]
+    effect_group = pygame.sprite.Group()
+
+    GROUPS = [powerup_group, effect_group, bullet_player_group, bullet_enemy_group, planet_group, enemy_group, player_group]
 
     def __init__(self):
         #Assign instance to class variable
@@ -891,6 +892,8 @@ class Planet(pygame.sprite.Sprite):
             if key[pygame.K_d]: 
                 self.pos_x -=  self.speed
             """
+        self.pos_y += self.speed
+
         # If the planet moves below the screen, regenerate it
         if self.pos_y > Game.instance.height + self.rect.height:
             self.counter += 1  # Cycle to the next planet image
@@ -898,7 +901,7 @@ class Planet(pygame.sprite.Sprite):
             # Loop back to the first image if we reach the end of the list
             if self.counter == len(Planet.PLANET_LIST):
                 self.counter = 0
-           
+                
             self.generate_planet()  # Generate a new planet
 
 class Enemy(pygame.sprite.Sprite):
@@ -944,6 +947,11 @@ class Enemy(pygame.sprite.Sprite):
             
             self.next_shot_time = current_time + self.shoot_interval  # Reset shot timer
 
+    def kill(self):
+        explosion = Explosion(self.rect.center)
+        Game.instance.effect_group.add(explosion)  # Temporarily add to enemy group 
+        super().kill()
+
     def render(self):
         Game.instance.screen.blit(self.image, self.rect)
     """
@@ -984,10 +992,7 @@ class DiagonalEnemy(Enemy):
         bullet_speed = 6
         shoot_interval = 1200
 
-
         super().__init__(DiagonalEnemy.ENEMY_IMG, speed, bullet_speed, shoot_interval, x, y)
-
-
 
     def update(self):
         super().handle_behavior()
@@ -1017,7 +1022,7 @@ class Heart(pygame.sprite.Sprite):
     def render(self):
         Game.instance.screen.blit(self.image, self.rect)
 
-class PowerUp(pygame.sprite.Sprite):
+class PowerUp(pygame.sprite.Sprite): 
     def __init__(self, image):
         super().__init__()
         # Set random position at the top of the screen
@@ -1085,13 +1090,40 @@ class LifePowerUp(PowerUp):
     def update(self):
         super().update()
 
-
-    EXP_IMG = [pygame.image.load(f"assets/exp{i}.png") for i in range (1,9)]
-    def __init__(self, pos):
-        frame_duration = 50  # 50 ms per frame
-       
-        super().__init__(Explosion.EXP_IMG, frame_duration)
+class Animation(pygame.sprite.Sprite):
+    def __init__(self, frames, pos):
+        super().__init__()
+        self.frames = frames  # list of images
+        self.frame_duration = 5  # time per frame (ms)
+        self.current_frame = 0 # index to access
+        self.image = self.frames[self.current_frame]
+        self.rect = self.image.get_rect()
+        self.timer = 0  # track time elapsed
         self.rect.center = pos
+
+    def update(self):
+        self.timer += 1
+        
+        if self.timer >= self.frame_duration:
+            self.timer = 0
+            self.current_frame += 1
+            if self.current_frame < len(self.frames):
+                self.image = self.frames[self.current_frame]
+            else:
+                self.kill()  # remove the animation when it's done
+      
+        self.render()
+
+    def render(self):
+        Game.instance.screen.blit(self.image, self.rect)
+        
+class Explosion(Animation):
+    EXP_IMG = [pygame.image.load(f"assets/explosion/exp{i}.png") for i in range (1,9)]
+   
+    def __init__(self, pos):
+        
+
+        super().__init__(Explosion.EXP_IMG, pos)
       
 game = Game()
 game.run()
