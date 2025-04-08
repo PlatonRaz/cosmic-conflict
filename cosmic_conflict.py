@@ -82,7 +82,7 @@ class Game():
     CONFIG = {
         "music": True,
         "sound": True,
-        "HUD": False,
+        "HUD": True,
         "wrapping" : False
         }
 
@@ -93,8 +93,9 @@ class Game():
     enemy_group = pygame.sprite.Group()
     player_group = pygame.sprite.Group()
     planet_group = pygame.sprite.Group()
-
-    GROUPS = [bullet_player_group, bullet_enemy_group, planet_group, enemy_group, player_group]
+    powerup_group = pygame.sprite.Group()
+    
+    GROUPS = [powerup_group, bullet_player_group, bullet_enemy_group, planet_group, enemy_group, player_group]
 
     def __init__(self):
         #Assign instance to class variable
@@ -162,15 +163,14 @@ class Game():
         self.player_group.add(self.player)
         self.data = Data()
         self.initialise_planets()
+        self.initialise_hearts()
+        self.initialise_bullets()
 
         # Wave System Attributes
-
         self.current_wave = 0
         self.wave_timer = 0  
         self.wave_duration = 0
         self.in_wave = False
-        self.waves_completed = False
-        self.diagonal_enemies_to_spawn = 0
         self.enemies_spawned = False
         
         self.last_spawn_time = 0
@@ -181,18 +181,17 @@ class Game():
             self.wave_2  # Spawn 6 Diagonal Enemies
             ]
         
-    
+
         self.WAVE_EVENT = pygame.USEREVENT + 0
         pygame.time.set_timer(self.WAVE_EVENT, 1000)
-        self.initialise_hearts()
-        self.initialise_bullets()
+        
+        self.POWER_UP = pygame.USEREVENT + 1
+        pygame.time.set_timer(self.POWER_UP, 5000)
 
-    def wave_1(self):
-        '''Wave 1: Spawn Standard Enemies'''
+    def wave_1(self):        
         # Initial setup when wave starts
         if self.wave_timer == 0:
             self.wave_duration = 15  # seconds
-            print("Wave 1: Standard enemies activated")
         
         # Spawning logic
         current_time = pygame.time.get_ticks()
@@ -207,15 +206,13 @@ class Game():
         return False
     
     def wave_2(self):
-        '''Wave 2: Spawn Diagonal Enemies in Formation'''
         # Initial setup when wave starts
         if self.wave_timer == 0:
             self.wave_duration = 30  # seconds
-            print("Wave 2: Diagonal formation activated")
         
-        # Spawn formation (only once)
-        x, y = 30, 50
-        x2, y2 = 200, -250
+            # Spawn formation 
+            x, y = 30, 50
+            x2, y2 = 200, -250
         
         if not self.enemies_spawned:
              # Left group
@@ -232,15 +229,11 @@ class Game():
                 x2 += 85
                 self.enemy_group.add(enemy)
             
-         
             self.enemies_spawned = True
         
         # Completion conditions
-        if len(self.enemy_group) == 0:  # All enemies defeated
+        if len(self.enemy_group) == 0 or self.wave_timer >= self.wave_duration:  
             return True
-        if self.wave_timer >= self.wave_duration:  # Time limit reached
-            return True
-        
         return False
 
     # Create non-button text 
@@ -303,7 +296,7 @@ class Game():
     
     def initialise_planets(self):
         num_planets = 1
-        for i in range(num_planets):
+        for _ in range(num_planets):
             planet = Planet()
             self.planet_group.add(planet)
     
@@ -462,37 +455,31 @@ class Game():
     def play_event_handler(self, event):
         if event.type == self.WAVE_EVENT:
             self.wave_timer += 1
-            
-            # Debug print to track wave state
-            print(f"Wave {self.current_wave + 1} - Timer: {self.wave_timer}/{self.wave_duration} - Enemies: {len(self.enemy_group)}")
-            
+    
             # If not in a wave, start the next one
             if not self.in_wave:
                 if self.current_wave < len(self.waves):
-                    print(f"=== STARTING WAVE {self.current_wave + 1} ===")
                     self.in_wave = True
                     self.wave_timer = 0
                     self.enemies_spawned = False
                     self.last_spawn_time = pygame.time.get_ticks()
                    
-            
             # Process current wave
             if self.in_wave:
                 wave_completed = self.waves[self.current_wave]()
                 
                 if wave_completed:
-                    print(f"=== WAVE {self.current_wave + 1} COMPLETED ===")
                     self.in_wave = False
                     self.current_wave += 1
                     
                     if self.current_wave >= len(self.waves):
                         self.current_wave = 0  # Loop back to first wave
-
-
-
-
-           
         
+        if event.type == self.POWER_UP:
+
+            if self.player.lives < 3:
+                life = LifePowerUp()
+                self.powerup_group.add(life)
 
     def options_event_handler(self, event):
         self.mouse_click_event(event)
@@ -623,25 +610,28 @@ class Player(pygame.sprite.Sprite):
             self.ammo -= 1
 
     def gain_life(self):
-        if self.lives < self.max_lives:  # Ensure life count does not exceed max limit
+        if self.lives < self.max_lives:
+            # First increment lives (this matches the actual count we want to display)
             self.lives += 1
-
+            
+            # Clear and rebuild the entire heart stack to ensure proper positioning
+            self.heart_stack = []  # Clear existing hearts
+            
             # Grid layout parameters
             x_initial, y_initial = 450, 65  # Starting position
             hearts_per_row = 3  # Number of hearts per row
-            x_spacing, y_spacing = 30, 30  # Spacing between hearts
-
-            # Determine next heart position based on current count
-            heart_count = len(self.heart_stack)
-            row = heart_count // hearts_per_row
-            col = heart_count % hearts_per_row
-
-            x_new = x_initial + col * x_spacing
-            y_new = y_initial + row * y_spacing
-
-            # Add new heart
-            heart = Heart(x_new, y_new)
-            self.heart_stack.append(heart)
+            x_spacing, y_spacing = 100, 30  # Spacing between hearts
+            
+            # Recreate all hearts with proper positions
+            for i in range(self.lives):
+                row = i // hearts_per_row
+                col = i % hearts_per_row
+                
+                x_new = x_initial + col * x_spacing
+                y_new = y_initial + row * y_spacing
+                
+                heart = Heart(x_new, y_new)
+                self.heart_stack.append(heart)
 
     def lose_life(self):
         if self.heart_stack:
@@ -866,7 +856,7 @@ class Planet(pygame.sprite.Sprite):
         ).convert_alpha()
         
         # Set random position at the top of the screen
-        self.pos_x = random.randint(-50, abs(Game.instance.width - (self.image.get_width() + 400)))
+        self.pos_x = random.randint(-50, 400 - (self.image.get_width()))
         self.pos_y = -self.image.get_height()
 
         # Get the image rectangle and set its position
@@ -971,7 +961,7 @@ class StandardEnemy(Enemy):
     ENEMY_IMG = [pygame.image.load(f"assets/enemy/standard/alien{i}.png") for i in range(1,7)]
 
     def __init__(self):
-        speed = random.randint(2, 5)
+        speed = random.randint(3, 5)
         bullet_speed = 6
         pos_x = random.randint(30, 370)
         pos_y = -100
@@ -1027,5 +1017,81 @@ class Heart(pygame.sprite.Sprite):
     def render(self):
         Game.instance.screen.blit(self.image, self.rect)
 
-g = Game()
-g.run()
+class PowerUp(pygame.sprite.Sprite):
+    def __init__(self, image):
+        super().__init__()
+        # Set random position at the top of the screen
+        self.pos_x, self.pos_y = random.randint(0, 400), -50
+        self.speed = 7
+        self.image = image
+        self.rect = self.image.get_rect(center=(self.pos_x, self.pos_y))
+        
+        self.alpha = 255  # Full opacity
+        self.pulsing_down = True  # Track whether we are fading out or in
+
+    def handle_behavior(self):
+        self.render()
+        self.collision_with_player()
+        self.despawn_if_offscreen()
+        self.move()
+
+    def update(self):
+        self.handle_behavior()
+        
+    def collision_with_player(self):
+        if pygame.sprite.spritecollide(self, Game.instance.player_group, False):
+            self.apply_effect()
+            self.kill()
+
+    def despawn_if_offscreen(self):
+        if self.rect.y >= Game.instance.height + 10:
+            self.kill()
+
+    def move(self):
+        #Move downards
+        self.rect.y += self.speed
+
+    def pulse(self):
+         # Pulsing effect by changing transparency
+        if self.pulsing_down:
+            self.alpha -= 10  # Fade out
+            if self.alpha <= 50:  
+                self.pulsing_down = False
+        else:
+            self.alpha += 10  # Fade in
+            if self.alpha >= 255:  # Fully visible
+                self.pulsing_down = True
+        
+        self.image.set_alpha(self.alpha)
+
+    def render(self):
+        self.pulse()
+        Game.instance.screen.blit(self.image, self.rect)
+        
+    def apply_effect(self):
+        """To be implemented by child classes"""
+        pass
+
+class LifePowerUp(PowerUp):
+    POWERUP_IMG = pygame.image.load(f"assets/misc/heart1.png")
+    
+    def __init__(self):
+       
+        super().__init__(LifePowerUp.POWERUP_IMG)
+    
+    def apply_effect(self):
+        Game.instance.player.gain_life()
+    
+    def update(self):
+        super().update()
+
+
+    EXP_IMG = [pygame.image.load(f"assets/exp{i}.png") for i in range (1,9)]
+    def __init__(self, pos):
+        frame_duration = 50  # 50 ms per frame
+       
+        super().__init__(Explosion.EXP_IMG, frame_duration)
+        self.rect.center = pos
+      
+game = Game()
+game.run()
