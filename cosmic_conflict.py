@@ -34,12 +34,27 @@ class Data():
                 self.highscore = 0  
   
     def write_highscore(self):
-        if self.highscore < 99999: # Prevent high-score overflows 
-            self.highscore += 1
-            with open(path.join(self.data_dir, Data.hs_file), "w") as f:
-                f.write(str(self.highscore))  # Write the current high score as a string to the file
+        # Only update if current score is higher than highscore
+        if Game.instance.player.score > self.highscore:
+            self.highscore = Game.instance.player.score
+            if self.highscore < 99999: # Prevent highscore overflows 
+                with open(path.join(self.data_dir, Data.hs_file), "w") as f:
+                    f.write(str(self.highscore))
 
+class Cursor(pygame.sprite.Sprite):
+    def __init__(self, picture_path):
+        super().__init__()
+        self.image = pygame.image.load(picture_path)
+        self.rect = self.image.get_rect()
+        pygame.mouse.set_visible(False) # Hide default mouse 
 
+    def update(self):
+        # Update position of sprite to follow mouse position
+        self.rect.center = pygame.mouse.get_pos() 
+        self.render()
+
+    def render(self):
+        Game.instance.screen.blit(self.image, self.rect)
 
 class Game():
     #Define class variables
@@ -96,7 +111,7 @@ class Game():
     powerup_group = pygame.sprite.Group()
     effect_group = pygame.sprite.Group()
 
-    GROUPS = [powerup_group, effect_group, bullet_player_group, bullet_enemy_group, planet_group, enemy_group, player_group]
+    GROUPS = [planet_group, enemy_group, bullet_player_group, bullet_enemy_group, player_group, powerup_group, effect_group      ]
 
     def __init__(self):
         #Assign instance to class variable
@@ -115,7 +130,8 @@ class Game():
             "PLAY": [self.play,self.play_event_handler],
             "OPTIONS": [self.options,self.options_event_handler],
             "ARMOURY": [self.armoury,self.armoury_event_handler],
-            "HELP": [self.help,self.help_event_handler]}
+            "HELP": [self.help,self.help_event_handler],
+            "PAUSE": [self.pause, self.pause_event_handler]}
 
 
         # Default game control attributes
@@ -145,7 +161,11 @@ class Game():
                         Game.COLORS["GREEN"] if Game.CONFIG[setting] else Game.COLORS["RED"],
                         (10, (100 + list(Game.CONFIG).index(setting) * 40))
                     )
-                    for setting in Game.CONFIG]
+                    for setting in Game.CONFIG],
+            "PAUSE": [
+                TextButton("PAUSED", Game.FONT_LARGE, Game.COLORS["YELLOW"], (105,165)),
+                TextButton("RESUME ( P )", Game.FONT_MEDIUM, Game.COLORS["WHITE"], (55,250)),
+        ]
 
 
             }
@@ -163,6 +183,7 @@ class Game():
         self.player = Player("SHIP1")
         self.player_group.add(self.player)
         self.data = Data()
+        self.cursor = Cursor("assets/misc/cursor.png")
         self.initialise_planets()
         self.initialise_hearts()
         self.initialise_bullets()
@@ -292,8 +313,9 @@ class Game():
         else:
             self.screen.fill(self.COLORS["bg_color"])
         # Display headings for current state
-        if self.current_state != "MENU" and self.current_state != "PLAY":
+        if self.current_state != "MENU" and self.current_state != "PLAY" and self.current_state != "PAUSE":
             self.text(self.current_state,self.FONT_LARGE, "WHITE", (10,30))
+        
     
     def initialise_planets(self):
         num_planets = 1
@@ -402,12 +424,14 @@ class Game():
     def menu(self):
         # Menu logic
         self.text("COSMIC CONFLICT",self.FONT_MEDIUM, "YELLOW", (8,30))
-        self.text("HIGHSCORE 0",self.FONT_SMALL, "WHITE", (100,100))
+        self.text(f"HIGH SCORE {self.data.highscore}",self.FONT_SMALL, "WHITE", (100,100))
 
         # Load and display menu buttons
         for button in self.text_buttons["MENU"]:
             button.update()
-    
+        #Update and render position of cursor
+        self.cursor.update()
+        
     def play(self):
         # Play logic 
         if self.GAME_OVER:
@@ -418,7 +442,7 @@ class Game():
             group.update()
        
         self.display_HUD()
-    
+        
     # Options Logic
     def options(self):
         #Options UI 
@@ -427,7 +451,8 @@ class Game():
             
         
         self.text_buttons["BACK"].update()
-        # Options Logic
+        #Update and render position of cursor
+        self.cursor.update()
 
     # Armoury Logic
     def armoury(self):
@@ -444,16 +469,36 @@ class Game():
         # Reset screen to default width 
         elif self.current_state != "ARMOURY" and self.width != 400:
             self.set_screen_size(400)
-        
+        #Update and render position of cursor
+        self.cursor.update()
     # Help Logic
     def help(self):
         # Help UI
         self.text_buttons["BACK"].update()
+        #Update and render position of cursor
+        self.cursor.update()
+    
+    # Pause Logic
+    def pause(self):
+        if self.width != 400:
+            self.set_screen_size(400)
+        # Create semi-transparent overlay
+        overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 150))  # Semi-transparent black
+        self.screen.blit(overlay, (0, 0))
         
+        # Show pause UI using buttons from dictionary
+        for button in self.text_buttons["PAUSE"]:
+            button.update()
+    
     def menu_event_handler(self, event):
+        
         self.mouse_click_event(event)
     
     def play_event_handler(self, event):
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_p:
+            self.current_state = "PAUSE"
+            return
         if event.type == self.WAVE_EVENT:
             self.wave_timer += 1
     
@@ -490,6 +535,15 @@ class Game():
 
     def help_event_handler(self, event):
         self.mouse_click_event(event)
+    
+    
+    def pause_event_handler(self, event):
+        # Handle key press to resume
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_p:
+            self.current_state = "PLAY"
+        
+        
+                  
 
 class Player(pygame.sprite.Sprite):
     #Dynamically load player ships with correct hitbox size
@@ -822,6 +876,8 @@ class Bullet(pygame.sprite.Sprite):
         if pygame.sprite.groupcollide(Game.instance.bullet_player_group, Game.instance.enemy_group, True, True):
             # Renew player's ammo upon a destroyed enemy
             Game.instance.player.score += 1
+            print(f"Enemies killed: {Game.instance.player.score}")
+            Game.instance.data.write_highscore()
             Game.instance.player.gain_bullet()
             Game.instance.player.gain_bullet()
         
@@ -901,7 +957,7 @@ class Planet(pygame.sprite.Sprite):
             # Loop back to the first image if we reach the end of the list
             if self.counter == len(Planet.PLANET_LIST):
                 self.counter = 0
-                
+
             self.generate_planet()  # Generate a new planet
 
 class Enemy(pygame.sprite.Sprite):
@@ -948,8 +1004,8 @@ class Enemy(pygame.sprite.Sprite):
             self.next_shot_time = current_time + self.shoot_interval  # Reset shot timer
 
     def kill(self):
-        explosion = Explosion(self.rect.center)
-        Game.instance.effect_group.add(explosion)  # Temporarily add to enemy group 
+        explosion = Explosion(self.rect.center) # Spawn at center of enemy position
+        Game.instance.effect_group.add(explosion)  #  Add to effect group 
         super().kill()
 
     def render(self):
@@ -1060,7 +1116,7 @@ class PowerUp(pygame.sprite.Sprite):
          # Pulsing effect by changing transparency
         if self.pulsing_down:
             self.alpha -= 10  # Fade out
-            if self.alpha <= 50:  
+            if self.alpha <= 85:  
                 self.pulsing_down = False
         else:
             self.alpha += 10  # Fade in
@@ -1098,8 +1154,8 @@ class Animation(pygame.sprite.Sprite):
         self.current_frame = 0 # index to access
         self.image = self.frames[self.current_frame]
         self.rect = self.image.get_rect()
-        self.timer = 0  # track time elapsed
         self.rect.center = pos
+        self.timer = 0  # track time elapsed
 
     def update(self):
         self.timer += 1
@@ -1122,7 +1178,6 @@ class Explosion(Animation):
    
     def __init__(self, pos):
         
-
         super().__init__(Explosion.EXP_IMG, pos)
       
 game = Game()
