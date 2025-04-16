@@ -91,8 +91,9 @@ class Game():
     BULLET_LIST = {"player" : pygame.image.load("assets/bullets/player_bullet.png"), 
                    "enemy" : pygame.image.load("assets/bullets/enemy_bullet.png")}
     
-    SHIP_DATA = load_json_text("data/game_text.json")
-   
+    SHIP_DATA = load_json_text("data/ship_data.json")
+    GAME_TEXT = load_json_text("data/game_text.json")
+
     # Default configuration for game settings
     CONFIG = {
         "music": True,
@@ -160,7 +161,7 @@ class Game():
                 TextButton("ARMOURY", Game.FONT_MEDIUM, Game.COLORS["WHITE"], (95,450)),
                 TextButton("HELP", Game.FONT_MEDIUM, Game.COLORS["WHITE"], (140,525))],
 
-            "BACK" : TextButton("BACK", Game.FONT_MEDIUM, Game.COLORS["WHITE"], (10,525)),
+            "BACK" : TextButton("BACK", Game.FONT_MEDIUM, Game.COLORS["WHITE"], (10,530)),
             
             "OPTIONS": [
                     TextButton(
@@ -325,7 +326,7 @@ class Game():
             self.screen.fill(self.COLORS["bg_color"])
         # Display headings for current state
         if self.current_state != "MENU" and self.current_state != "PLAY" and self.current_state != "PAUSE":
-            self.text(self.current_state,self.FONT_LARGE, "WHITE", (10,30))
+            self.text(self.current_state,self.FONT_LARGE, "WHITE", (10,20))
         
     
     def initialise_planets(self):
@@ -447,8 +448,8 @@ class Game():
         # Play logic 
         if self.GAME_OVER:
             self.player.kill()
+        
         # Update and draw sprite groups
-
         for group in self.GROUPS:
             group.update()
        
@@ -482,10 +483,35 @@ class Game():
             self.set_screen_size(400)
         #Update and render position of cursor
         self.cursor.update()
+   
     # Help Logic
     def help(self):
         # Help UI
         self.text_buttons["BACK"].update()
+        
+        # Resize screen for help state
+        if self.current_state == "HELP" and self.width != 600:
+            self.set_screen_size(600)
+        # Reset screen to default width 
+        elif self.current_state != "HELP" and self.width != 400:
+            self.set_screen_size(400) 
+       
+        # Display help text from JSON
+        help_data = self.GAME_TEXT.get("help_text")
+        y_offset = 65  # Starting Y position
+        
+        for section in help_data:
+            # Display section title
+            self.text(section["title"], self.FONT_MEDIUM, "YELLOW", (10, y_offset))
+            y_offset += 40
+            
+            # Display each line of content
+            for line in section["content"]:
+                self.text(line, self.FONT_SMALL, "GREEN", (20, y_offset))
+                y_offset += 30
+            
+            y_offset += 20  # Extra space between sections
+
         #Update and render position of cursor
         self.cursor.update()
     

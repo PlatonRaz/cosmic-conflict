@@ -1,58 +1,29 @@
 {
-    "SHIP1": {
-        "name": "Euphoria",
-        "speed": 40,
-        "lives": 3,
-        "ammo": 5,
-        "fire rate" : 50,
-        "bullet speed" : 10,
-        "type": "Single Shooter"
-     
-    },
-    "SHIP2": {
-        "name": "Pandora",
-        "speed": 70,
-        "lives": 2,
-        "ammo": 5,
-        "fire rate" : 40,
-        "bullet speed" : 10,
-        "type": "Single Shooter"
-    },
-    "SHIP3": {
-        "name": "Battalion",
-        "speed": 30,
-        "lives": 4,
-        "ammo": 10,
-        "fire rate" : 60,
-        "bullet speed" : 10,
-        "type": "Single Shooter"
-    },
-    "SHIP4": {
-        "name": "Neptune",
-        "speed": 50,
-        "lives": 5,
-        "ammo": 5,
-        "fire rate" : 40,
-        "bullet speed" : 10,
-        "type": "Dual Shooter"
-    },
-    "SHIP5": {
-        "name": "Sirius",
-        "speed": 60,
-        "lives": 6,
-        "ammo": 10,
-        "fire rate" : 50,
-        "bullet speed" : 10,
-        "type": "Triple Wide Shooter"
-    },
-    "SHIP6": {
-        "name": "Starpiercer",
-        "speed": 70,
-        "lives": 1,
-        "ammo": 1,
-        "fire rate" : 80,
-        "bullet speed" : 20,
-        "type": "Sniper Shooter"
-    }
-
+    "help_text": [
+        {
+            "title": "CONTROLS",
+            "content": [
+                "(  WASD )  Move ship",
+                "( SPACE )  Fire weapons",
+                "(   P   )  Pause game"
+            ]
+        },
+        {
+            "title": "HOW TO PLAY",
+            "content": [
+                "Destroy enemies to score points",
+                "Collect powerups for bonuses",
+                "Avoid enemy bullets",
+                "Manage your limited ammo"
+            ]
+        },
+        {
+            "title": "SHIP TYPES",
+            "content": [
+                "Different ships have unique stats",
+                "Visit Armoury to compare",
+                "Select what fits your playstyle"
+            ]
+        }
+    ]
 }
