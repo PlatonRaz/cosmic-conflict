@@ -124,14 +124,6 @@ class Game():
         self.screen = pygame.display.set_mode((self.width, self.height))
         self.clock = pygame.time.Clock()
        
-        #Game states
-        self.states = {
-            "MENU": [self.menu, self.menu_event_handler],
-            "PLAY": [self.play,self.play_event_handler],
-            "OPTIONS": [self.options,self.options_event_handler],
-            "ARMOURY": [self.armoury,self.armoury_event_handler],
-            "HELP": [self.help,self.help_event_handler],
-            "PAUSE": [self.pause, self.pause_event_handler]}
 
 
         # Default game control attributes
@@ -144,8 +136,24 @@ class Game():
         self.BG_default_x = -self.BG_IMG["BG"].get_width()/3
         self.BG_y = self.BG_default_y
         self.BG_x = self.BG_default_x
+       
+        #Game states
+        self.states = {
+            "MENU": [self.menu, self.menu_event_handler],
+            "PLAY": [self.play,self.play_event_handler],
+            "OPTIONS": [self.options,self.options_event_handler],
+            "ARMOURY": [self.armoury,self.armoury_event_handler],
+            "HELP": [self.help,self.help_event_handler],
+            "PAUSE": [self.pause, self.pause_event_handler]}
+      
         # Available buttons
         self.text_buttons = {
+            "PAUSE": [
+                TextButton("PAUSED", Game.FONT_LARGE, Game.COLORS["YELLOW"], (105,165)),
+                TextButton("RESUME ( P )", Game.FONT_MEDIUM, Game.COLORS["WHITE"], (55,325)),
+                TextButton("EXIT ( ESC )", Game.FONT_MEDIUM, Game.COLORS["WHITE"], (65,400))],
+
+
             "MENU" : [
                 TextButton("PLAY", Game.FONT_MEDIUM, Game.COLORS["WHITE"], (140,300)),
                 TextButton("OPTIONS", Game.FONT_MEDIUM, Game.COLORS["WHITE"], (110,375)),
@@ -161,12 +169,7 @@ class Game():
                         Game.COLORS["GREEN"] if Game.CONFIG[setting] else Game.COLORS["RED"],
                         (10, (100 + list(Game.CONFIG).index(setting) * 40))
                     )
-                    for setting in Game.CONFIG],
-            "PAUSE": [
-                TextButton("PAUSED", Game.FONT_LARGE, Game.COLORS["YELLOW"], (105,165)),
-                TextButton("RESUME ( P )", Game.FONT_MEDIUM, Game.COLORS["WHITE"], (55,250)),
-        ]
-
+                    for setting in Game.CONFIG]
 
             }
 
@@ -209,6 +212,14 @@ class Game():
         
         self.POWER_UP = pygame.USEREVENT + 1
         pygame.time.set_timer(self.POWER_UP, 5000)
+
+        # Pause attributes
+        self.pause_data = {
+            'start_time': 0,
+            'total_paused': 0,
+            'is_paused': False
+        }
+
 
     def wave_1(self):        
         # Initial setup when wave starts
@@ -480,14 +491,20 @@ class Game():
     
     # Pause Logic
     def pause(self):
+        # Record when pause starts
+        if not self.pause_data['is_paused']:
+            self.pause_data['start_time'] = pygame.time.get_ticks()
+            self.pause_data['is_paused'] = True
+       
         if self.width != 400:
             self.set_screen_size(400)
+       
         # Create semi-transparent overlay
         overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
         overlay.fill((0, 0, 0, 150))  # Semi-transparent black
         self.screen.blit(overlay, (0, 0))
         
-        # Show pause UI using buttons from dictionary
+        # Display text/buttons in PAUSE screen
         for button in self.text_buttons["PAUSE"]:
             button.update()
     
@@ -536,12 +553,17 @@ class Game():
     def help_event_handler(self, event):
         self.mouse_click_event(event)
     
-    
     def pause_event_handler(self, event):
         # Handle key press to resume
         if event.type == pygame.KEYDOWN and event.key == pygame.K_p:
             self.current_state = "PLAY"
-        
+            self.pause_data['total_paused'] = pygame.time.get_ticks() - self.pause_data['start_time']
+            self.pause_data['is_paused'] = False
+
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+            self.current_state = "MENU"
+            self.pause_data['is_paused'] = False
+
         
                   
 
@@ -876,7 +898,6 @@ class Bullet(pygame.sprite.Sprite):
         if pygame.sprite.groupcollide(Game.instance.bullet_player_group, Game.instance.enemy_group, True, True):
             # Renew player's ammo upon a destroyed enemy
             Game.instance.player.score += 1
-            print(f"Enemies killed: {Game.instance.player.score}")
             Game.instance.data.write_highscore()
             Game.instance.player.gain_bullet()
             Game.instance.player.gain_bullet()
@@ -996,11 +1017,14 @@ class Enemy(pygame.sprite.Sprite):
 
     def shoot_bullet(self):
         current_time = pygame.time.get_ticks() 
-       
+        # Adjust for paused time if game was paused
+        if Game.instance.pause_data['total_paused'] > 0:
+            self.next_shot_time += Game.instance.pause_data['total_paused']
+            Game.instance.pause_data['total_paused'] = 0  # Reset
+
         if current_time >= self.next_shot_time and not Game.instance.GAME_OVER:
             enemy_bullet = Bullet(self.rect.x-5, self.rect.bottom, self.bullet_speed, False)
             Game.instance.bullet_enemy_group.add(enemy_bullet)
-            
             self.next_shot_time = current_time + self.shoot_interval  # Reset shot timer
 
     def kill(self):
