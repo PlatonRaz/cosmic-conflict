@@ -438,8 +438,32 @@ class Game():
         
         for heart in self.player.heart_stack:
             heart.update()
-       
+
+    def reset_game_state(self):
+        # Reset all game state variables
+        self.GAME_OVER = False
+        self.current_wave = 0
+        self.wave_timer = 0
+        self.in_wave = False
+        self.enemies_spawned = False
+        
+        # Clear all sprite groups
+        for group in self.GROUPS:
+            group.empty()
+        
+        # Reinitialize the player
+        self.player = Player(self.player.selected_ship)  # Keep the same selected ship
+        self.player_group.add(self.player)
+        
+        # Reinitialize UI elements
+        self.initialise_hearts()
+        self.initialise_bullets()
+        self.initialise_planets()
+        
+
     def menu(self):
+        if self.width != 400:
+            self.set_screen_size(400)
         # Menu logic
         self.text("COSMIC CONFLICT",self.FONT_MEDIUM, "YELLOW", (8,30))
         self.text(f"HIGH SCORE {self.data.highscore}",self.FONT_SMALL, "WHITE", (100,100))
@@ -452,14 +476,24 @@ class Game():
         
     def play(self):
         # Play logic 
-        if self.GAME_OVER:
-            self.player.kill()
         
         # Update and draw sprite groups
         for group in self.GROUPS:
             group.update()
        
         self.display_HUD()
+        
+        # Draw game over screen on top of everything else
+        if self.GAME_OVER:
+            self.player.kill()
+            overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 90))  # Semi-transparent black
+            self.screen.blit(overlay, (0, 0))
+            # Draw game over text
+            self.text("GAME OVER", self.FONT_LARGE, "YELLOW", (55, 80))
+            self.text("Play Again ( SPACE )", self.FONT_SMALL, "WHITE", (55, 150))
+            self.text("Exit ( ESC )", self.FONT_SMALL, "WHITE", (115, 185))
+      
         
     # Options Logic
     def options(self):
@@ -545,9 +579,18 @@ class Game():
         self.mouse_click_event(event)
     
     def play_event_handler(self, event):
-        if event.type == pygame.KEYDOWN and event.key == pygame.K_p:
-            self.current_state = "PAUSE"
-            return
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE and self.GAME_OVER:
+                self.reset_game_state()
+                self.current_state = "MENU"
+           
+            if event.key == pygame.K_SPACE and self.GAME_OVER:
+                self.reset_game_state()
+
+            elif event.key == pygame.K_p and not self.GAME_OVER:
+                self.current_state = "PAUSE"
+                return
+
         if event.type == self.WAVE_EVENT:
             self.wave_timer += 1
     
@@ -571,8 +614,7 @@ class Game():
                     if self.current_wave >= len(self.waves):
                         self.current_wave = 0  # Loop back to first wave
         
-        if event.type == self.POWER_UP:
-
+        if event.type == self.POWER_UP and not self.GAME_OVER:
             if self.player.lives < 3:
                 life = LifePowerUp()
                 self.powerup_group.add(life)
@@ -594,6 +636,7 @@ class Game():
             self.pause_data['is_paused'] = False
 
         if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+            self.reset_game_state()
             self.current_state = "MENU"
             self.pause_data['is_paused'] = False
 
@@ -1017,7 +1060,7 @@ class Planet(pygame.sprite.Sprite):
 class Enemy(pygame.sprite.Sprite):
     def __init__(self, image_list, speed, bullet_speed, shoot_interval, pos_x, pos_y):
         super().__init__()
-        self.speed_increase = Game.instance.total_waves_completed // 2
+        self.speed_increase = Game.instance.total_waves_completed // 4
         self.speed = speed + self.speed_increase
         self.bullet_speed = bullet_speed + self.speed_increase
         
@@ -1104,6 +1147,7 @@ class DiagonalEnemy(Enemy):
         shoot_interval = 1200
 
         super().__init__(DiagonalEnemy.ENEMY_IMG, speed, bullet_speed, shoot_interval, x, y)
+        self.speed_x = 5 
 
     def update(self):
         super().handle_behavior()
