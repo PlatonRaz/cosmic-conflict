@@ -198,6 +198,7 @@ class Game():
         self.wave_duration = 0
         self.in_wave = False
         self.enemies_spawned = False
+        self.total_waves_completed = 0
         
         self.last_spawn_time = 0
         self.spawn_interval = 1700 # ms
@@ -227,6 +228,8 @@ class Game():
         if self.wave_timer == 0:
             self.wave_duration = 15  # seconds
         
+       
+
         # Spawning logic
         current_time = pygame.time.get_ticks()
         if current_time - self.last_spawn_time >= self.spawn_interval:
@@ -236,6 +239,9 @@ class Game():
         
         # Completion conditions
         if self.wave_timer >= self.wave_duration:
+            for enemy in self.enemy_group:
+                if enemy.rect.y < 0:
+                    enemy.kill()
             return True
         return False
     
@@ -319,7 +325,7 @@ class Game():
     
     def global_UI_elements(self):
         # Display backgrounds for current states
-        if self.current_state != "ARMOURY":
+        if self.current_state != "ARMOURY" and self.current_state != "HELP":
             self.screen.blit(self.BG_IMG["BG"], (self.BG_x, self.BG_y))
             self.move_background()       
         else:
@@ -490,14 +496,14 @@ class Game():
         self.text_buttons["BACK"].update()
         
         # Resize screen for help state
-        if self.current_state == "HELP" and self.width != 600:
-            self.set_screen_size(600)
+        if self.current_state == "HELP" and self.width != 610:
+            self.set_screen_size(610)
         # Reset screen to default width 
         elif self.current_state != "HELP" and self.width != 400:
             self.set_screen_size(400) 
        
         # Display help text from JSON
-        help_data = self.GAME_TEXT.get("help_text")
+        help_data = self.GAME_TEXT["help_text"]
         y_offset = 65  # Starting Y position
         
         for section in help_data:
@@ -560,6 +566,7 @@ class Game():
                 if wave_completed:
                     self.in_wave = False
                     self.current_wave += 1
+                    self.total_waves_completed += 1
                     
                     if self.current_wave >= len(self.waves):
                         self.current_wave = 0  # Loop back to first wave
@@ -1010,8 +1017,9 @@ class Planet(pygame.sprite.Sprite):
 class Enemy(pygame.sprite.Sprite):
     def __init__(self, image_list, speed, bullet_speed, shoot_interval, pos_x, pos_y):
         super().__init__()
-        self.speed = speed
-        self.bullet_speed = bullet_speed
+        self.speed_increase = Game.instance.total_waves_completed // 2
+        self.speed = speed + self.speed_increase
+        self.bullet_speed = bullet_speed + self.speed_increase
         
         self.shoot_interval = shoot_interval
         self.next_shot_time = pygame.time.get_ticks() + self.shoot_interval
@@ -1039,7 +1047,6 @@ class Enemy(pygame.sprite.Sprite):
     def despawn_if_offscreen(self):
         if self.rect.y >= Game.instance.height + 10:
             self.kill()
-            Game.instance.player.lose_life()
 
     def shoot_bullet(self):
         current_time = pygame.time.get_ticks() 
@@ -1075,15 +1082,14 @@ class StandardEnemy(Enemy):
     ENEMY_IMG = [pygame.image.load(f"assets/enemy/standard/alien{i}.png") for i in range(1,7)]
 
     def __init__(self):
-        speed = random.randint(3, 5)
-        bullet_speed = 6
+        speed = random.randint(2, 4)
         pos_x = random.randint(30, 370)
-        pos_y = -100
-        
+        pos_y = -500
+        bullet_speed = 6 
         # Individual fire timing
         shoot_interval = random.randint(850, 1100)  # Each enemy shoots at random intervals
         super().__init__(StandardEnemy.ENEMY_IMG, speed, bullet_speed, shoot_interval, pos_x, pos_y)
-    
+   
     def update(self):
         super().update()
         self.rect.y += self.speed
@@ -1093,9 +1099,8 @@ class DiagonalEnemy(Enemy):
  
 
     def __init__(self, x, y):
-        self.speed_x = 4
         speed = 2
-        bullet_speed = 6
+        bullet_speed = 6 
         shoot_interval = 1200
 
         super().__init__(DiagonalEnemy.ENEMY_IMG, speed, bullet_speed, shoot_interval, x, y)
